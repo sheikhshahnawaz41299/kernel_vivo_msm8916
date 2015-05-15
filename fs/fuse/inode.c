@@ -875,6 +875,11 @@ static void process_init_reply(struct fuse_conn *fc, struct fuse_req *req)
 			}
 			if (arg->flags & FUSE_ASYNC_DIO)
 				fc->async_dio = 1;
+
+			if (arg->flags & FUSE_SHORTCIRCUIT) {
+				fc->writeback_cache = 0;
+				fc->shortcircuit_io = 1;
+			}
 		} else {
 			ra_pages = fc->max_read / PAGE_CACHE_SIZE;
 			fc->no_lock = 1;
