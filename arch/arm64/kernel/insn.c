@@ -22,6 +22,9 @@
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
 #include <asm/insn.h>
+#if defined(CONFIG_STRICT_MEMORY_RWX)
+#include <asm/mmu.h>
+#endif
 
 static int aarch64_insn_encoding_class[] = {
 	AARCH64_INSN_CLS_UNKNOWN,
@@ -83,8 +86,31 @@ int __kprobes aarch64_insn_read(void *addr, u32 *insnp)
 
 int __kprobes aarch64_insn_write(void *addr, u32 insn)
 {
+#if defined(CONFIG_STRICT_MEMORY_RWX)
+	int ret;
+	mm_segment_t old_fs;
+	insn = cpu_to_le32(insn);
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	pagefault_disable();
+	mem_text_write_kernel_word((u32 *)addr, insn);
+	if (*((u32 *)addr) == insn)
+	{
+		ret = 0;
+	}
+	else
+	{
+		ret = -EFAULT;
+	}
+	pagefault_enable();
+	set_fs(old_fs);
+
+	return ret;
+#else
 	insn = cpu_to_le32(insn);
 	return probe_kernel_write(addr, &insn, AARCH64_INSN_SIZE);
+#endif
 }
 
 static bool __kprobes __aarch64_insn_hotpatch_safe(u32 insn)
