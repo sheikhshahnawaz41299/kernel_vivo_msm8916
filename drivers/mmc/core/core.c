@@ -37,6 +37,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
+#include <linux/mmc/slot-gpio.h> /*for detecting during resume */
 
 #include "core.h"
 #include "bus.h"
@@ -2275,6 +2276,7 @@ void mmc_detach_bus(struct mmc_host *host)
  */
 void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 {
+	int ret;
 #ifdef CONFIG_MMC_DEBUG
 	unsigned long flags;
 	spin_lock_irqsave(&host->lock, flags);
@@ -2283,7 +2285,8 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 #endif
 	host->detect_change = 1;
 
-	mmc_schedule_delayed_work(&host->detect, delay);
+	ret = mmc_schedule_delayed_work(&host->detect, delay);
+	printk("%s:%s ret = %d \n",mmc_hostname(host),__func__,ret);
 }
 
 EXPORT_SYMBOL(mmc_detect_change);
@@ -3254,10 +3257,12 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 {
 	host->f_init = freq;
 
-#ifdef CONFIG_MMC_DEBUG
+//#ifdef CONFIG_MMC_DEBUG
+	printk("%s === %s === \n",mmc_hostname(host),__func__);
+
 	pr_info("%s: %s: trying to init card at %u Hz\n",
 		mmc_hostname(host), __func__, host->f_init);
-#endif
+//#endif
 	mmc_power_up(host);
 
 	/*
@@ -3361,6 +3366,7 @@ void mmc_rescan(struct work_struct *work)
 	struct mmc_host *host =
 		container_of(work, struct mmc_host, detect.work);
 	bool extend_wakelock = false;
+	printk("%s === %s === \n",mmc_hostname(host),__func__);
 
 	if (host->rescan_disable)
 		return;
@@ -3410,13 +3416,14 @@ void mmc_rescan(struct work_struct *work)
 	 */
 	mmc_bus_put(host);
 
+/*	get_cd returns fault value due to opposite gpio.
 	if (host->ops->get_cd && host->ops->get_cd(host) == 0) {
 		mmc_claim_host(host);
 		mmc_power_off(host);
 		mmc_release_host(host);
 		goto out;
 	}
-
+*/
 	mmc_rpm_hold(host, &host->class_dev);
 	mmc_claim_host(host);
 	if (!mmc_rescan_try_freq(host, host->f_min))
@@ -3432,6 +3439,8 @@ void mmc_rescan(struct work_struct *work)
 		mmc_schedule_delayed_work(&host->detect, HZ);
 }
 
+extern unsigned int is_atboot;
+
 void mmc_start_host(struct mmc_host *host)
 {
 	mmc_claim_host(host);
@@ -3442,6 +3451,8 @@ void mmc_start_host(struct mmc_host *host)
 	else
 		mmc_power_up(host);
 	mmc_release_host(host);
+	if(is_atboot!=1)
+		msleep(500);
 	mmc_detect_change(host, 0);
 }
 
@@ -3879,15 +3890,27 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
 
-		spin_lock_irqsave(&host->lock, flags);
+		//adb by liuruyi
+		if((host->index == 1 && !mmc_gpio_get_cd(host)) || host->bus_dead){
+            spin_lock_irqsave(&host->lock, flags);
+            host->rescan_disable = 0;
+			spin_unlock_irqrestore(&host->lock, flags);
+			pr_info("%s :card may be removed during system suspend,try detect it,host->bus_dead(%d) \n",mmc_hostname(host),host->bus_dead);
+			mmc_detect_change(host, 0);
+			break;
+		}
+        //end
+        
+        spin_lock_irqsave(&host->lock, flags);
+        host->rescan_disable = 0;
 		if (mmc_bus_manual_resume(host)) {
 			spin_unlock_irqrestore(&host->lock, flags);
 			break;
 		}
-		host->rescan_disable = 0;
+		//host->rescan_disable = 0;
 		spin_unlock_irqrestore(&host->lock, flags);
 		mmc_detect_change(host, 0);
-		break;
+
 
 	default:
 		return -EINVAL;

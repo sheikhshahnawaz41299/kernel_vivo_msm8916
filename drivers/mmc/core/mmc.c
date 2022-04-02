@@ -24,6 +24,9 @@
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd_ops.h"
+#ifdef CONFIG_FMEA
+int fmea_notifys(char *name, char *data, ...);
+#endif
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -136,6 +139,9 @@ static int mmc_decode_cid(struct mmc_card *card)
 			mmc_hostname(card->host), card->csd.mmca_vsn);
 		return -EINVAL;
 	}
+	#ifdef CONFIG_FMEA
+	fmea_notifys("eMMC","cid:%08x%08x%08x%08x prv:0x%x\n",card->raw_cid[0], card->raw_cid[1],card->raw_cid[2], card->raw_cid[3], card->cid.prv);
+	#endif
 
 	return 0;
 }
@@ -564,11 +570,23 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		card->erased_byte = 0xFF;
 	else
 		card->erased_byte = 0x0;
+	
+	card->ext_csd.dev_left_time_b = 0x00;
+	card->ext_csd.dev_left_time_a = 0x00;
+	card->ext_csd.dev_left_time = 0x00;
+
+        card->ext_csd.firmware_version =
+			ext_csd[EXT_CSD_FIRMWARE_VERSION + 0] << 0 |
+			ext_csd[EXT_CSD_FIRMWARE_VERSION + 1] << 8 |
+			ext_csd[EXT_CSD_FIRMWARE_VERSION + 2] << 16 |
+			ext_csd[EXT_CSD_FIRMWARE_VERSION + 3] << 24;
 
 	/* eMMC v4.5 or later */
 	if (card->ext_csd.rev >= 6) {
 		card->ext_csd.feature_support |= MMC_DISCARD_FEATURE;
-
+		card->ext_csd.dev_left_time_b = ext_csd[DEVICE_LIFE_TIME_EST_TYP_B];
+		card->ext_csd.dev_left_time_a = ext_csd[DEVICE_LIFE_TIME_EST_TYP_A];
+		card->ext_csd.dev_left_time = ext_csd[PRE_EOL_INFO];
 		card->ext_csd.generic_cmd6_time = 10 *
 			ext_csd[EXT_CSD_GENERIC_CMD6_TIME];
 		card->ext_csd.power_off_longtime = 10 *
@@ -601,6 +619,10 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	} else {
 		card->ext_csd.data_sector_size = 512;
 	}
+    #ifdef CONFIG_FMEA
+    fmea_notifys("eMMC","FirmwareVersion[0x%08x],EOLinfo[0x%02x],dev_left_time_a[0x%02x],dev_left_time_b[0x%02x] \n",
+        card->ext_csd.firmware_version,card->ext_csd.dev_left_time,card->ext_csd.dev_left_time_a,card->ext_csd.dev_left_time_b);
+	#endif
 
 out:
 	return err;
@@ -674,6 +696,10 @@ MMC_DEV_ATTR(cid, "%08x%08x%08x%08x\n", card->raw_cid[0], card->raw_cid[1],
 	card->raw_cid[2], card->raw_cid[3]);
 MMC_DEV_ATTR(csd, "%08x%08x%08x%08x\n", card->raw_csd[0], card->raw_csd[1],
 	card->raw_csd[2], card->raw_csd[3]);
+MMC_DEV_ATTR(dev_left_time, "0x%02x\n", card->ext_csd.dev_left_time);
+MMC_DEV_ATTR(dev_left_time_a, "0x%02x\n", card->ext_csd.dev_left_time_a);
+MMC_DEV_ATTR(dev_left_time_b, "0x%02x\n", card->ext_csd.dev_left_time_b);
+MMC_DEV_ATTR(firmware_version, "0x%08x\n", card->ext_csd.firmware_version);
 MMC_DEV_ATTR(date, "%02d/%04d\n", card->cid.month, card->cid.year);
 MMC_DEV_ATTR(erase_size, "%u\n", card->erase_size << 9);
 MMC_DEV_ATTR(preferred_erase_size, "%u\n", card->pref_erase << 9);
@@ -693,6 +719,10 @@ MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
 	&dev_attr_csd.attr,
+	&dev_attr_dev_left_time.attr,
+	&dev_attr_dev_left_time_a.attr,
+	&dev_attr_dev_left_time_b.attr,
+	&dev_attr_firmware_version.attr,
 	&dev_attr_date.attr,
 	&dev_attr_erase_size.attr,
 	&dev_attr_preferred_erase_size.attr,

@@ -39,6 +39,7 @@ out:
 	return ret;
 }
 
+extern unsigned int is_atboot;
 
 static irqreturn_t mmc_gpio_cd_irqt(int irq, void *dev_id)
 {
@@ -70,7 +71,10 @@ static irqreturn_t mmc_gpio_cd_irqt(int irq, void *dev_id)
 		ctx->status = status;
 
 		/* Schedule a card detection after a debounce timeout */
-		mmc_detect_change(host, msecs_to_jiffies(200));
+		if(is_atboot==1)
+			mmc_detect_change(host, msecs_to_jiffies(200));
+		else
+			mmc_detect_change(host, msecs_to_jiffies(1000));
 	}
 out:
 
@@ -288,3 +292,163 @@ void mmc_gpio_free_cd(struct mmc_host *host)
 	devm_gpio_free(&host->class_dev, gpio);
 }
 EXPORT_SYMBOL(mmc_gpio_free_cd);
+
+
+
+static int mmc_gpio_get_status_vtf(struct mmc_host *host)
+{
+	int ret = -ENOSYS;
+	struct mmc_gpio *ctx = host->slot_vtf.handler_priv;
+
+	if (!ctx || !gpio_is_valid(ctx->cd_gpio))
+		goto out;
+
+	ret = !gpio_get_value_cansleep(ctx->cd_gpio) ^
+		!!(host->caps2 & MMC_CAP2_CD_ACTIVE_HIGH);
+out:
+	return ret;
+}
+
+static int mmc_gpio_alloc_vtf(struct mmc_host *host)
+{
+	size_t len = strlen(dev_name(host->parent)) + 4;
+	struct mmc_gpio *ctx;
+
+	mutex_lock(&host->slot_vtf.lock);
+
+	ctx = host->slot_vtf.handler_priv;
+	if (!ctx) {
+		/*
+		 * devm_kzalloc() can be called after device_initialize(), even
+		 * before device_add(), i.e., between mmc_alloc_host() and
+		 * mmc_add_host()
+		 */
+		ctx = devm_kzalloc(&host->class_dev, sizeof(*ctx) + 2 * len,
+				   GFP_KERNEL);
+		if (ctx) {
+			ctx->ro_label = ctx->cd_label + len;
+			snprintf(ctx->cd_label, len, "%s cd1", dev_name(host->parent));
+			snprintf(ctx->ro_label, len, "%s ro1", dev_name(host->parent));
+			ctx->cd_gpio = -EINVAL;
+			ctx->ro_gpio = -EINVAL;
+			host->slot_vtf.handler_priv = ctx;
+		}
+	}
+
+	mutex_unlock(&host->slot_vtf.lock);
+
+	return ctx ? 0 : -ENOMEM;
+}
+
+static irqreturn_t mmc_gpio_cd_irqt_vtf(int irq, void *dev_id)
+{
+    /* Schedule a card detection after a debounce timeout */
+    struct mmc_host *host = dev_id;
+    struct mmc_gpio *ctx = host->slot_vtf.handler_priv;
+    int status;
+
+    /*
+     * In case host->ops are not yet initialized return immediately.
+     * The card will get detected later when host driver calls
+     * mmc_add_host() after host->ops are initialized.
+     */
+    if (!host->ops)
+        goto out;
+
+    if (host->ops->card_event)
+        host->ops->card_event(host);
+
+    status = mmc_gpio_get_status_vtf(host);
+    if (unlikely(status < 0))
+        goto out;
+
+    if (host->ios.power_mode == MMC_POWER_ON) {
+        pr_info("%s: VTF slot(%d) status change detected (%d -> %d), GPIO_ACTIVE_%s\n",
+                mmc_hostname(host), ctx->cd_gpio, ctx->status, status,
+                (host->caps2 & MMC_CAP2_CD_ACTIVE_HIGH) ?
+                "HIGH" : "LOW");
+        ctx->status = status;
+
+        /* Schedule a card detection after a debounce timeout */
+        mmc_detect_change(host, 0);
+    }
+out:
+
+    return IRQ_HANDLED;
+
+}
+
+int mmc_gpio_request_cd_vtf(struct mmc_host *host, unsigned int gpio)
+{
+	struct mmc_gpio *ctx;
+	int irq = gpio_to_irq(gpio);
+	int ret;    
+
+	ret = mmc_gpio_alloc_vtf(host);
+	if (ret < 0)
+		return ret;
+
+	ctx = host->slot_vtf.handler_priv;
+
+	ret = devm_gpio_request_one(&host->class_dev, gpio, GPIOF_DIR_IN,
+				    ctx->cd_label);
+	if (ret < 0)
+		/*
+		 * don't bother freeing memory. It might still get used by other
+		 * slot functions, in any case it will be freed, when the device
+		 * is destroyed.
+		 */
+		return ret;
+
+	/*
+	 * Even if gpio_to_irq() returns a valid IRQ number, the platform might
+	 * still prefer to poll, e.g., because that IRQ number is already used
+	 * by another unit and cannot be shared.
+	 */
+	if (irq >= 0 && host->caps & MMC_CAP_NEEDS_POLL)
+		irq = -EINVAL;
+
+	ctx->cd_gpio = gpio;
+	host->slot_vtf.cd_irq = irq;
+
+	ret = mmc_gpio_get_status_vtf(host);
+	if (ret < 0)
+		return ret;
+
+	ctx->status = ret;
+
+	if (irq >= 0) {
+		ret = devm_request_threaded_irq(&host->class_dev, irq,
+			NULL, mmc_gpio_cd_irqt_vtf,
+			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+			ctx->cd_label, host);
+		if (ret < 0)
+			irq = ret;
+	}
+
+	if (irq < 0)
+		host->caps |= MMC_CAP_NEEDS_POLL;
+
+	return 0;
+}
+EXPORT_SYMBOL(mmc_gpio_request_cd_vtf);
+
+void mmc_gpio_free_cd_vtf(struct mmc_host *host)
+{
+	struct mmc_gpio *ctx = host->slot_vtf.handler_priv;
+	int gpio;
+
+	if (!ctx || !gpio_is_valid(ctx->cd_gpio))
+		return;
+
+	if (host->slot_vtf.cd_irq >= 0) {
+		devm_free_irq(&host->class_dev, host->slot_vtf.cd_irq, host);
+		host->slot_vtf.cd_irq = -EINVAL;
+	}
+
+	gpio = ctx->cd_gpio;
+	ctx->cd_gpio = -EINVAL;
+
+	devm_gpio_free(&host->class_dev, gpio);
+}
+EXPORT_SYMBOL(mmc_gpio_free_cd_vtf);
