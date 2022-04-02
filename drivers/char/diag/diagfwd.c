@@ -736,7 +736,7 @@ void encode_rsp_and_send(int buf_length)
 	 * means we did not get a write complete for the previous
 	 * response.
 	 */
-	while (retry_count < UINT_MAX) {
+	while (retry_count < 100) {
 		if (!driver->rsp_buf_busy)
 			break;
 		/*
