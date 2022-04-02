@@ -113,6 +113,34 @@ static void msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 				i2c_byte1 = (value & 0xFF00) >> 8;
 				i2c_byte2 = value & 0xFF;
 			}
+			}
+		else if (write_arr[i].reg_write_type == MSM_ACTUATOR_WRITE_DAC_AR) {
+			value = (next_lens_position <<
+				write_arr[i].data_shift) |
+				((hw_dword & write_arr[i].hw_mask) >>
+				write_arr[i].hw_shift);
+			if (write_arr[i].reg_addr != 0xFFFF) {
+				i2c_byte1 = write_arr[i].reg_addr;
+				i2c_byte2 = value;
+				if (size != (i+1)) {
+					i2c_byte2 = (value & 0xFF00) >> 8;
+					CDBG("byte1:0x%x, byte2:0x%x\n",
+						i2c_byte1, i2c_byte2);
+					i2c_tbl[a_ctrl->i2c_tbl_index].
+						reg_addr = i2c_byte1;
+					i2c_tbl[a_ctrl->i2c_tbl_index].
+						reg_data = i2c_byte2;
+					i2c_tbl[a_ctrl->i2c_tbl_index].
+						delay = 0;
+					a_ctrl->i2c_tbl_index++;
+					i++;
+					i2c_byte1 = write_arr[i].reg_addr;
+					i2c_byte2 = value & 0xFF;
+				}
+			} else {
+				i2c_byte1 = (value & 0xFF00) >> 8;
+				i2c_byte2 = value & 0xFF;
+			}
 		} else {
 			i2c_byte1 = write_arr[i].reg_addr;
 			i2c_byte2 = (hw_dword & write_arr[i].hw_mask) >>
@@ -170,13 +198,13 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 			pr_err("Unsupport i2c_operation: %d\n",
 				settings[i].i2c_operation);
 			break;
+		}
 
 		if (0 != settings[i].delay)
 			msleep(settings[i].delay);
 
 		if (rc < 0)
 			break;
-		}
 	}
 
 	a_ctrl->curr_step_pos = 0;
@@ -368,6 +396,7 @@ static int32_t msm_actuator_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
 	uint16_t next_lens_pos = 0;
+	int16_t distance_lens_pos = 0;
 	struct msm_camera_i2c_reg_setting reg_setting;
 
 	a_ctrl->i2c_tbl_index = 0;
@@ -386,9 +415,18 @@ static int32_t msm_actuator_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
 		a_ctrl->park_lens.max_step = a_ctrl->max_code_size;
 
 	next_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
-	while (next_lens_pos) {
-		next_lens_pos = (next_lens_pos > a_ctrl->park_lens.max_step) ?
-			(next_lens_pos - a_ctrl->park_lens.max_step) : 0;
+	while (next_lens_pos != a_ctrl->position_park_lens) {
+		distance_lens_pos = next_lens_pos -a_ctrl->position_park_lens;
+		if(distance_lens_pos > 0)
+			{
+				next_lens_pos = (distance_lens_pos > a_ctrl->park_lens.max_step) ?
+					(next_lens_pos - a_ctrl->park_lens.max_step) : a_ctrl->position_park_lens;
+			}
+		if(distance_lens_pos < 0)
+			{
+				next_lens_pos = (abs(distance_lens_pos) > a_ctrl->park_lens.max_step) ?
+					(next_lens_pos + a_ctrl->park_lens.max_step) : a_ctrl->position_park_lens;
+			}
 		a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
 			next_lens_pos, a_ctrl->park_lens.hw_params,
 			a_ctrl->park_lens.damping_delay);
@@ -397,6 +435,8 @@ static int32_t msm_actuator_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
 		reg_setting.size = a_ctrl->i2c_tbl_index;
 		reg_setting.data_type = a_ctrl->i2c_data_type;
 
+		CDBG("%s:%d next_lens_pos %d reg_setting size %d\n",
+			__func__, __LINE__, next_lens_pos, reg_setting.size);
 		rc = a_ctrl->i2c_client.i2c_func_tbl->
 			i2c_write_table_w_microdelay(
 			&a_ctrl->i2c_client, &reg_setting);
@@ -1230,6 +1270,9 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	of_property_read_u32((&pdev->dev)->of_node, "qcom,position-park-lens",
+		&msm_actuator_t->position_park_lens);
+	CDBG("qcom,position-park-lens %d\n", msm_actuator_t->position_park_lens);
 	if (of_find_property((&pdev->dev)->of_node,
 			"qcom,cam-vreg-name", NULL)) {
 		vreg_cfg = &msm_actuator_t->vreg_cfg;
