@@ -43,6 +43,8 @@ enum {
 
 const char *mux_names[] = { "c1", "c0", "cci"};
 
+extern  int get_hw_subtype(void);
+
 static struct mux_div_clk a53ssmux_bc = {
 	.ops = &rcg_mux_div_ops,
 	.safe_freq = 400000000,
@@ -173,9 +175,17 @@ static void get_speed_bin(struct platform_device *pdev, int *bin,
 	struct resource *res;
 	void __iomem *base, *base1, *base2;
 	u32 pte_efuse, pte_efuse1, pte_efuse2;
+	int hw_sub_type;
+	
+	hw_sub_type = get_hw_subtype();
 
 	*bin = 0;
 	*version = 0;
+
+	if(hw_sub_type == 11) {  //for PD1523 or PD1524LG4
+	    *bin = 2;
+	    *version = 2;
+	} 
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
 	if (!res) {
@@ -195,6 +205,10 @@ static void get_speed_bin(struct platform_device *pdev, int *bin,
 	devm_iounmap(&pdev->dev, base);
 
 	*bin = (pte_efuse >> 2) & 0x7;
+
+	if(hw_sub_type == 11) {  //for PD1523 or PD1524LG4
+	    *bin = 2;
+	} 
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse1");
 	if (!res) {
@@ -231,6 +245,11 @@ static void get_speed_bin(struct platform_device *pdev, int *bin,
 	devm_iounmap(&pdev->dev, base2);
 
 	*version = ((pte_efuse1 >> 29 & 0x1) | ((pte_efuse2 >> 18 & 0x3) << 1));
+
+	if(hw_sub_type == 11) {  //for PD1523 or PD1524LG4
+	    *bin = 2;
+	    *version = 2;
+	}
 
 out:
 	dev_info(&pdev->dev, "Speed bin: %d PVS Version: %d\n", *bin,
