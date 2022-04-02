@@ -41,6 +41,7 @@ struct tps65132_regulator {
 	u8				wrt_en_bit_pos;
 	u8				read_eeprom_bit_pos;
 	int				en_gpio;
+	bool				neg_pos_same_gpio; /* Added by ChenJinQuan */
 	enum				of_gpio_flags gpio_flags;
 	bool				is_enabled;
 	int				curr_uV;
@@ -257,7 +258,8 @@ static int tps65132_regulator_gpio_init(struct tps65132_chip *chip)
 		flags = vreg->gpio_flags;
 		if (gpio_is_valid(gpio)) {
 			rc = devm_gpio_request(chip->dev, gpio, vreg->name);
-			if (rc < 0) {
+			if (rc < 0 && !(vreg->neg_pos_same_gpio &&
+				(rc == -EBUSY))) {
 				pr_err("gpio %d request failed, rc = %d\n",
 								gpio, rc);
 				return rc;
@@ -466,6 +468,11 @@ static int tps65132_parse_dt(struct tps65132_chip *chip,
 					chip->vreg[i].en_gpio);
 			return chip->vreg[i].en_gpio;
 		}
+
+		chip->vreg[i].neg_pos_same_gpio = of_property_read_bool(
+						match->of_node,
+						"ti,neg-pos-same-gpio");
+
 	}
 	chip->apps_dischg_reg = TPS65132_REG_APPS_DISCHARGE;
 	chip->apps_cfg_bit_pos = TPS65132_APPSCFG_BIT;

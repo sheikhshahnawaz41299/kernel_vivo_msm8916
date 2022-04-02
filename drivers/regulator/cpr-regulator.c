@@ -194,7 +194,8 @@ struct quot_adjust_info {
 
 static const char * const vdd_apc_name[] =	{"vdd-apc-optional-prim",
 						"vdd-apc-optional-sec",
-						"vdd-apc"};
+						"vdd-apc",
+						"vdd-apc-vivo",};
 
 enum voltage_change_dir {
 	NO_CHANGE,
