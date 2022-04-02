@@ -382,7 +382,7 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 	struct msm_camera_power_ctrl_t *power_info = NULL;
 	uint32_t count = 0;
 	uint16_t *gpio_array = NULL;
-	uint16_t gpio_array_size = 0;
+	int32_t gpio_array_size = 0;
 	uint32_t id_info[3];
 
 	CDBG("called\n");
@@ -493,7 +493,7 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 		gpio_array_size = of_gpio_count(of_node);
 		CDBG("%s gpio count %d\n", __func__, gpio_array_size);
 
-		if (gpio_array_size) {
+		if (gpio_array_size > 0) {
 			gpio_array = kzalloc(sizeof(uint16_t) * gpio_array_size,
 				GFP_KERNEL);
 			if (!gpio_array) {
