@@ -37,6 +37,10 @@
 #include <asm/system_misc.h>
 
 #include <trace/events/exception.h>
+#if defined(CONFIG_HAVE_AEE_FEATURE)
+#include <asm/opcodes.h>
+#include <linux/aee.h>
+#endif
 
 static const char *handler[]= {
 	"prefetch abort",
@@ -301,7 +305,10 @@ static void oops_end(unsigned long flags, struct pt_regs *regs, int signr)
 	if (!die_nest_count)
 		/* Nest count reaches zero, release the lock. */
 		arch_spin_unlock(&die_lock);
+#if !defined(CONFIG_HAVE_AEE_FEATURE)
+	/* not enable irq incase softirq many turn off msdc clock */
 	raw_local_irq_restore(flags);
+#endif
 	oops_exit();
 
 	if (in_interrupt())
@@ -400,11 +407,34 @@ static int call_undef_hook(struct pt_regs *regs, unsigned int instr)
 	return fn ? fn(regs, instr) : 1;
 }
 
+#if defined(CONFIG_HAVE_AEE_FEATURE)
+static DEFINE_PER_CPU(void *, __prev_undefinstr_pc) = 0;
+static DEFINE_PER_CPU(int, __prev_undefinstr_counter) = 0;
+#endif
+
 asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 {
+#if defined(CONFIG_HAVE_AEE_FEATURE)
+	struct thread_info *thread = current_thread_info();
+	int ret;
+#endif
 	unsigned int instr;
 	siginfo_t info;
 	void __user *pc;
+#if defined(CONFIG_HAVE_AEE_FEATURE)
+	u32 insn = __opcode_to_mem_arm(BUG_INSTR_VALUE);
+
+	if (!user_mode(regs)) {
+		thread->cpu_excp++;
+		if (thread->cpu_excp == 1) {
+			thread->regs_on_excp = (void *)regs;
+			aee_excp_regs = (void*)regs;
+		}
+		if (thread->cpu_excp >= 2) {
+			aee_stop_nested_panic(regs);
+		}
+	}
+#endif
 
 	pc = (void __user *)instruction_pointer(regs);
 
@@ -433,8 +463,18 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 		goto die_sig;
 	}
 
+#if defined(CONFIG_HAVE_AEE_FEATURE)
+	ret = call_undef_hook(regs, instr);
+	if (ret == 0) {
+		if (!user_mode(regs)) {
+			thread->cpu_excp--;
+		}	  
+		return;
+	}
+#else
 	if (call_undef_hook(regs, instr) == 0)
 		return;
+#endif
 
 die_sig:
 	trace_undef_instr(regs, (void *)pc);
@@ -444,6 +484,58 @@ die_sig:
 		printk(KERN_INFO "%s (%d): undefined instruction: pc=%p\n",
 			current->comm, task_pid_nr(current), pc);
 		dump_instr(KERN_INFO, regs);
+	}
+#endif
+
+#if defined(CONFIG_HAVE_AEE_FEATURE)
+	/* Place the SIGILL ICache Invalidate after the Debugger Undefined-Instruction Solution. */
+	if (((processor_mode(regs) == USR_MODE) || (processor_mode(regs) == SVC_MODE)) && 
+			(instr != insn)) {
+		void **prev_undefinstr_pc = &get_cpu_var(__prev_undefinstr_pc);
+		int *prev_undefinstr_counter = &get_cpu_var(__prev_undefinstr_counter);
+                /* Only do it for User-Space Application. */
+		pr_alert("USR_MODE/SVC_MODE Undefined Instruction Address curr:%p pc=%p:%p, instr: 0x%x\n",
+			(void *)current, (void *)pc, (void *)*prev_undefinstr_pc, 
+			instr);
+		if ((*prev_undefinstr_pc != pc)) {
+			/* If the current process or program counter is changed......renew the counter. */
+			pr_alert("First Time Recovery curr:%p pc=%p:%p\n",
+				(void *)current, (void *)pc, (void *)*prev_undefinstr_pc);
+			*prev_undefinstr_pc = pc;
+			*prev_undefinstr_counter = 0;
+			put_cpu_var(__prev_undefinstr_pc);
+			put_cpu_var(__prev_undefinstr_counter);
+			__cpuc_flush_icache_all();
+			flush_cache_all();
+			if (!user_mode(regs)) {
+				thread->cpu_excp--;
+			}
+			return;
+		}
+		else if(*prev_undefinstr_counter < 1) {
+			pr_alert("2nd Time Recovery curr:%p pc=%p:%p\n",
+				(void *)current, (void *)pc,
+				(void *)*prev_undefinstr_pc);
+			*prev_undefinstr_counter += 1;
+			put_cpu_var(__prev_undefinstr_pc);
+			put_cpu_var(__prev_undefinstr_counter);
+			__cpuc_flush_icache_all();
+			flush_cache_all();
+			if (!user_mode(regs)) {
+				thread->cpu_excp--;
+			}
+			return;
+		}
+		*prev_undefinstr_counter += 1;
+		if(*prev_undefinstr_counter >= 4) {
+			/* 2=first time SigILL,3=2nd time NE-SigILL,4=3rd time CoreDump-SigILL */
+			*prev_undefinstr_pc = 0;
+			*prev_undefinstr_counter = 0;
+		}
+		put_cpu_var(__prev_undefinstr_pc);
+		put_cpu_var(__prev_undefinstr_counter);
+		pr_alert("Go to ARM Notify Die curr:%p pc=%p:%p\n",
+			(void *)current, (void *)pc, (void *)*prev_undefinstr_pc);
 	}
 #endif
 
