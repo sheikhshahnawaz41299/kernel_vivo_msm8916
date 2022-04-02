@@ -43,6 +43,9 @@
 
 #include <soc/qcom/smd.h>
 
+#ifdef CONFIG_BBK_DRIVER_INFO
+#include <linux/bbk_drivers_info.h>
+#endif
 #define DEVICE "wcnss_wlan"
 #define CTRL_DEVICE "wcnss_ctrl"
 #define VERSION "1.01"
@@ -73,6 +76,13 @@ MODULE_PARM_DESC(has_calibrated_data, "whether calibrated data file available");
 static int has_autodetect_xo = WCNSS_CONFIG_UNSPECIFIED;
 module_param(has_autodetect_xo, int, S_IWUSR | S_IRUGO);
 MODULE_PARM_DESC(has_autodetect_xo, "Perform auto detect to configure IRIS XO");
+//add by huangxinyuan for specified project customization
+static char *project_name = NULL;
+module_param(project_name, charp, S_IWUSR | S_IRUGO);
+MODULE_PARM_DESC(project_name, "Use for specified project customization, by huangxinyuan");
+static int wcnss_ready = 0;
+module_param(wcnss_ready, int, S_IWUSR | S_IRUGO);
+MODULE_PARM_DESC(wcnss_ready, "Use for specified project customization, by huangxinyuan");
 
 static int do_not_cancel_vote = WCNSS_CONFIG_UNSPECIFIED;
 module_param(do_not_cancel_vote, int, S_IWUSR | S_IRUGO);
@@ -256,6 +266,11 @@ static struct notifier_block wnb = {
 };
 
 #define NVBIN_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"
+#define NVBIN_FILE_PD1503L "wlan/prima/WCNSS_qcom_wlan_nv.bin.PD1503L"
+#define NVBIN_FILE_PD1503A "wlan/prima/WCNSS_qcom_wlan_nv.bin.PD1503A"
+
+#define NVBIN_FILE_PD1505L "wlan/prima/WCNSS_qcom_wlan_nv.bin.PD1505L"
+#define NVBIN_FILE_PD1505 "wlan/prima/WCNSS_qcom_wlan_nv.bin.PD1505"
 
 /* On SMD channel 4K of maximum data can be transferred, including message
  * header, so NV fragment size as next multiple of 1Kb is 3Kb.
@@ -427,6 +442,7 @@ static struct {
 	int pc_disabled;
 	struct delayed_work wcnss_pm_qos_del_req;
 	struct mutex pm_qos_mutex;
+        char nv_bin_file[100];
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -1470,6 +1486,12 @@ static struct platform_driver wcnss_ctrl_driver = {
 	.remove	= wcnss_ctrl_remove,
 };
 
+//Add by huangxinyuan for for two kinds of hardware boards. 
+char* wcnss_get_nv_bin_file(void)
+{
+	return penv->nv_bin_file;
+}
+EXPORT_SYMBOL(wcnss_get_nv_bin_file);
 struct device *wcnss_wlan_get_device(void)
 {
 	if (penv && penv->pdev && penv->smd_channel_ready)
@@ -2175,6 +2197,7 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 	case WCNSS_CBC_COMPLETE_IND:
 		penv->is_cbc_done = 1;
 		pr_info("wcnss: received WCNSS_CBC_COMPLETE_IND from FW\n");
+		wcnss_ready = 1;
 		break;
 
 	case WCNSS_CALDATA_UPLD_REQ:
@@ -2255,6 +2278,129 @@ static void wcnss_pm_qos_enable_pc(struct work_struct *worker)
 
 static DECLARE_RWSEM(wcnss_pm_sem);
 
+//add by huangxinyuan
+void wcnss_get_board_info(void)
+{
+        char *board_version = NULL;
+        int size_bin;
+        
+        if(project_name != NULL)//write value from userspace init.project.rc
+        {
+            if(!strcmp(project_name, "PD1505"))// PD1505
+            {
+#ifdef CONFIG_BBK_DRIVER_INFO
+                board_version = get_bbk_board_version();            
+                if(board_version != NULL)
+                    pr_err("wcnss: %s: board_version %s\n", __func__, board_version);  
+                else
+                {
+                    pr_err("wcnss: %s: board_version get null\n", __func__);  
+                    size_bin = strlen(NVBIN_FILE);
+                    pr_err("wcnss: NVBIN_FILE's size = %d\n",size_bin);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);                             
+                    return;
+                }
+
+                if(board_version[0] == '1' && board_version[1] == '0')//PD1505A
+                {
+                    pr_err("wcnss: %s: %d, PD1505A .\n", __func__, __LINE__);  
+
+                    size_bin = strlen(NVBIN_FILE_PD1505);
+                    pr_err("wcnss: NVBIN_FILE's size = %d\n",size_bin);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE_PD1505, size_bin);
+                    
+                }  
+                else if(board_version[0] == '1' && board_version[1] == '1')//PD1505L
+                {
+                    pr_err("wcnss: %s: %d, PD1505L .\n", __func__, __LINE__);  
+                    size_bin = strlen(NVBIN_FILE_PD1505L);
+                    pr_err("wcnss: NVBIN_FILE's size = %d\n",size_bin);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE_PD1505L, size_bin);                
+                } 
+                else // treat as default PD1505A
+                {
+                    pr_err("wcnss: %s: %d, PD1505A default.\n", __func__, __LINE__);  
+                    size_bin = strlen(NVBIN_FILE);
+                    pr_err("wcnss: NVBIN_FILE's size = %d\n",size_bin);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);                
+                }                
+#else
+                size_bin = strlen(NVBIN_FILE);
+                memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);               
+#endif     
+            }
+            else if(!strcmp(project_name, "PD1503"))// PD1503
+            {
+#ifdef CONFIG_BBK_DRIVER_INFO
+                board_version = get_bbk_board_version();            
+                if(board_version != NULL)
+                    pr_err("wcnss: %s: board_version %s\n", __func__, board_version);  
+                else
+                {
+                    pr_err("wcnss: %s: board_version get null\n", __func__);  
+                    size_bin = strlen(NVBIN_FILE);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);                             
+                    return;
+                }
+
+
+                if(board_version[1] == '0' && board_version[2] == '1' && board_version[4] ==  '1')//PD1503L
+                {
+                    pr_err("wcnss: %s: %d, PD1503L .\n", __func__, __LINE__);  
+                    size_bin = strlen(NVBIN_FILE_PD1503L);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE_PD1503L, size_bin);
+                }  
+                else if(board_version[1] == '1' && board_version[2] == '1' && board_version[4] ==  '1')//PD1503V
+                {
+                    pr_err("wcnss: %s: %d, PD1503V .\n", __func__, __LINE__);  
+                    size_bin = strlen(NVBIN_FILE);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);                
+                }                
+                else if (board_version[2] == '0' && board_version[4] ==  '1')//PD1503A
+                {
+                    pr_err("wcnss: %s: %d, PD1503A\n", __func__, __LINE__);  
+                    size_bin = strlen(NVBIN_FILE_PD1503A);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE_PD1503A, size_bin);                 
+                }                
+                else // treat as default PD1503V
+                {
+                    pr_err("wcnss: %s: %d, PD1503 default.\n", __func__, __LINE__);  
+                    size_bin = strlen(NVBIN_FILE);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);                
+                }
+#else
+                size_bin = strlen(NVBIN_FILE);
+                memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);               
+#endif                
+            }            
+            else
+            {
+                    size_bin = strlen(NVBIN_FILE);
+                    memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                    memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);                                    
+            }
+                
+        }
+        else
+        {
+                size_bin = strlen(NVBIN_FILE);
+                memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+                memcpy(penv->nv_bin_file, NVBIN_FILE, size_bin);                 
+        }
+        pr_err("wcnss: %s: bin file:%s\n", __func__, penv->nv_bin_file);  
+}
+
 static void wcnss_nvbin_dnld(void)
 {
 	int ret = 0;
@@ -2269,16 +2415,24 @@ static void wcnss_nvbin_dnld(void)
 	const struct firmware *nv = NULL;
 	struct device *dev = &penv->pdev->dev;
 
+        wcnss_get_board_info();
 	down_read(&wcnss_pm_sem);
-
-	ret = request_firmware(&nv, NVBIN_FILE, dev);
+      
+	ret = request_firmware(&nv, penv->nv_bin_file, dev);
 
 	if (ret || !nv || !nv->data || !nv->size) {
-		pr_err("wcnss: %s: request_firmware failed for %s (ret = %d)\n",
-			__func__, NVBIN_FILE, ret);
-		goto out;
-	}
+            pr_err("wcnss: %s: request_firmware failed for %s, use default %s\n", __func__, 
+                penv->nv_bin_file, NVBIN_FILE);
+            ret = request_firmware(&nv, NVBIN_FILE, dev);
 
+            if (ret || !nv || !nv->data || !nv->size) {
+            	pr_err("wcnss: %s: request_firmware failed for %s (ret = %d)\n",
+            		__func__, NVBIN_FILE, ret);
+            	goto out;
+            }
+            memset(penv->nv_bin_file, 0, sizeof(penv->nv_bin_file));
+            memcpy(penv->nv_bin_file, NVBIN_FILE, strlen(NVBIN_FILE));            
+        }
 	/* First 4 bytes in nv blob is validity bitmap.
 	 * We cannot validate nv, so skip those 4 bytes.
 	 */
@@ -2586,11 +2740,40 @@ static ssize_t wcnss_ctrl_write(struct file *fp, const char __user
 	return rc;
 }
 
+static ssize_t wcnss_ctrl_read(struct file *fp, char __user
+			*user_buffer, size_t count, loff_t *position)
+{
+	int rc = 0;
+
+	if (!penv || !penv->device_opened)
+		return -EFAULT;
+
+	rc = wait_event_interruptible(penv->wlan_config.wcnss_ctrl_wait,
+		(penv->wlan_config.irisStatus == IRIS_DETECTION_SUCCESS
+		|| penv->wlan_config.irisStatus == IRIS_DETECTION_FAIL));
+
+	if (rc < 0)
+		return rc;
+
+	mutex_lock(&penv->ctrl_lock);
+	count = sizeof(penv->wlan_config.irisStatus);
+
+	rc = copy_to_user(user_buffer,
+		(void *)&(penv->wlan_config.irisStatus), count);
+
+	mutex_unlock(&penv->ctrl_lock);
+
+	pr_info("%s: iris detection status: %d\n", __func__,
+	penv->wlan_config.irisStatus);
+
+	return rc;
+}
 
 static const struct file_operations wcnss_ctrl_fops = {
 	.owner = THIS_MODULE,
 	.open = wcnss_ctrl_open,
 	.write = wcnss_ctrl_write,
+	.read = wcnss_ctrl_read,
 };
 
 static struct miscdevice wcnss_usr_ctrl = {
@@ -3212,6 +3395,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	mutex_init(&penv->vbat_monitor_mutex);
 	mutex_init(&penv->pm_qos_mutex);
 	init_waitqueue_head(&penv->read_wait);
+	init_waitqueue_head(&penv->wlan_config.wcnss_ctrl_wait);
 
 	/* Since we were built into the kernel we'll be called as part
 	 * of kernel initialization.  We don't know if userspace

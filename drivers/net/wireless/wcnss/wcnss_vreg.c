@@ -314,9 +314,18 @@ configure_iris_xo(struct device *dev,
 					 * Clear implies 19.2 MHz TCXO
 					 */
 					reg &= ~(WCNSS_PMU_CFG_IRIS_XO_MODE);
+
+					cfg->irisStatus = IRIS_DETECTION_FAIL;
+					wake_up(&cfg->wcnss_ctrl_wait);
+
 					goto xo_configure;
 				} else if (!validate_iris_chip_id(iris_reg)) {
 					pr_debug("wcnss: IRIS Card is present\n");
+
+					cfg->irisStatus =
+						IRIS_DETECTION_SUCCESS;
+					wake_up(&cfg->wcnss_ctrl_wait);
+
 					break;
 				}
 				reg &= ~WCNSS_PMU_CFG_IRIS_XO_READ;
