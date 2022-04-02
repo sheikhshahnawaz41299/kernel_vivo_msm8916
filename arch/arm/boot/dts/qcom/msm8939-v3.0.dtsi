@@ -28,7 +28,7 @@
 	qcom,msm-id = <239 0x30000>, <241 0x30000>, <263 0x30000>;
 
 	chosen {
-		bootargs = "boot_cpus=0,4,5,6,7 sched_enable_hmp=1";
+		bootargs = "boot_cpus=0,1,2,3 sched_enable_hmp=1";
 	};
 };
 
@@ -268,7 +268,6 @@
 		cpubw-cpufreq {
 		target-dev = <&cpubw>;
 		cpu-to-dev-map-0 =
-			<  200000  1525 >,
 			<  800000  2636 >,
 			< 1113600  5346 >,
 			< 1651200  6079 >;
@@ -292,8 +291,7 @@
 		cci-cpufreq {
 		target-dev = <&cci_cache>;
 		cpu-to-dev-map-0 =
-			<  200000  200000 >,
-			<  400000  200000 >,
+
 			< 1113600  297000 >,
 			< 1651200  595200 >;
 		cpu-to-dev-map-4 =
@@ -322,10 +320,6 @@
 		qcom,governor-per-policy;
 
 		qcom,cpufreq-table-0 =
-			 <  200000 >,
-			 <  345600 >,
-			 <  400000 >,
-			 <  533330 >,
 			 <  800000 >,
                          <  960000 >,
 			 < 1113600 >,
@@ -497,6 +491,7 @@
 		qcom,cpr-voltage-ceiling = <1050000 1150000 1350000>;
 		qcom,cpr-voltage-floor = <1050000 1050000 1100000>;
 		vdd-apc-supply = <&ncp6335d>;
+		vdd-apc-vivo-supply = <&ncp6335d>;
 
 		qcom,vdd-mx-corner-map = <4 5 7>;
 		qcom,vdd-mx-vmin-method = <4>;

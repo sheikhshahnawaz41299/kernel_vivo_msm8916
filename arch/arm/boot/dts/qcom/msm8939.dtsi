@@ -27,7 +27,7 @@
 	qcom,msm-id = <239 0>, <241 0>, <263 0>;
 
 	chosen {
-		bootargs = "boot_cpus=0 androidboot.earlyboot_cpus=2,4,6 sched_enable_hmp=1";
+		bootargs = "boot_cpus=0,1,3 androidboot.earlyboot_cpus=2,4,6 sched_enable_hmp=1";
 	};
 };
 
@@ -306,10 +306,7 @@
 		cci-cpufreq {
 		target-dev = <&cci_cache>;
 		cpu-to-dev-map-0 =
-			<  200000  200000 >,
-			<  345600  200000 >,
-			<  400000  200000 >,
-			<  533330  297600 >,
+			
 			<  800000  297600 >,
 			<  960000  297600 >,
 			< 1113600  297000 >,
@@ -345,11 +342,7 @@
 		qcom,governor-per-policy;
 
 		qcom,cpufreq-table-0 =
-			 <  200000 >,
-			 <  345600 >,
-			 <  400000 >,
-			 <  533330 >,
-			 <  800000 >,
+		   	 <  800000 >,
                          <  960000 >,
 			 < 1113600 >,
 			 < 1344000 >,

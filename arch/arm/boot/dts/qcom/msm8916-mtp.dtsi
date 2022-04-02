@@ -12,7 +12,7 @@
 
 #include "msm8916.dtsi"
 #include "msm8916-pinctrl.dtsi"
-#include "msm8916-camera-sensor-mtp.dtsi"
+//#include "msm8916-camera-sensor-mtp.dtsi"
 
 / {
 	aliases {
@@ -21,8 +21,20 @@
 };
 
 &soc {
+
+	tcard_sim_slot:tcard_sim {
+		compatible = "card-detect";
+		
+		card-detect-sim1,gpios = <&msm_gpio 60 0x00>;
+		card-detect-sim2,gpios = <&msm_gpio 56 0x00>;
+		
+		factory-test,sim2-card;
+		factory-test,sim1-card;
+	};
+	
 	i2c@78b9000 { /* BLSP1 QUP5 */
 		synaptics@20 {
+			status = "disabled";
 			compatible = "synaptics,rmi4";
 			reg = <0x20>;
 			interrupt-parent = <&msm_gpio>;
@@ -48,18 +60,9 @@
 		};
 	};
 
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "synaptics_rmi4_i2c";
-		qcom,disp-maxx = <1079>;
-		qcom,disp-maxy = <1919>;
-		qcom,panel-maxx = <1079>;
-		qcom,panel-maxy = <2084>;
-		qcom,key-codes = <158 139 172 217>;
-	};
-
 	i2c@78ba000 { /* BLSP1 QUP6 */
 		nfc-nci@e {
+			status = "disabled";
 			compatible = "qcom,nfc-nci";
 			reg = <0x0e>;
 			qcom,irq-gpio = <&msm_gpio 21 0x00>;
@@ -78,59 +81,6 @@
 		};
 	};
 
-	i2c@78b6000 { /* BLSP1 QUP2 */
-		mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
-			compatible = "invn,mpu6050";
-			reg = <0x68>;
-			pinctrl-names = "mpu_default","mpu_sleep";
-			pinctrl-0 = <&mpu6050_default>;
-			pinctrl-1 = <&mpu6050_sleep>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <115 0x2>;
-			vdd-supply = <&pm8916_l17>;
-			vlogic-supply = <&pm8916_l16>;
-			vi2c-supply = <&pm8916_l6>;
-			invn,gpio-int = <&msm_gpio 115 0x2>;
-			invn,place = "Portrait Down Back Side";
-		};
-
-		avago@39 { /* Ambient light and proximity sensor */
-			compatible = "avago,apds9900";
-			reg = <0x39>;
-			pinctrl-names = "default","sleep";
-			pinctrl-0 = <&apds99xx_default>;
-			pinctrl-1 = <&apds99xx_sleep>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <113 0x2002>;
-			vdd-supply = <&pm8916_l17>;
-			vio-supply = <&pm8916_l6>;
-			avago,irq-gpio = <&msm_gpio 113 0x2002>;
-			avago,ps-threshold = <600>;
-			avago,ps-hysteresis-threshold = <500>;
-			avago,ps-pulse = <8>;
-			avago,ps-pgain = <0>;
-			avago,als-B = <223>;
-			avago,als-C = <70>;
-			avago,als-D = <142>;
-			avago,ga-value = <48>;
-		};
-
-		akm@c {
-			compatible = "ak,ak8963";
-			reg = <0x0c>;
-			pinctrl-names = "ak8963_default", "ak8963_sleep";
-			pinctrl-0 = <&ak8963_default>;
-			pinctrl-1 = <&ak8963_sleep>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <69 0x2>;
-			vdd-supply = <&pm8916_l17>;
-			vio-supply = <&pm8916_l6>;
-			ak,layout = <0x6>;
-			ak,auto-report;
-		};
-
-	};
-
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
 		qcom,model = "msm8x16-snd-card-mtp";
@@ -140,37 +90,28 @@
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
-		qcom,msm-micbias1-ext-cap;
-		qcom,msm-hs-micbias-type = "internal";
+		qcom,msm-hs-micbias-type = "external";
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"SPK_RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
 			"MIC BIAS External", "Handset Mic",
-			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS External2", "Headset Mic",
 			"MIC BIAS External", "Secondary Mic",
 			"AMIC1", "MIC BIAS External",
-			"AMIC2", "MIC BIAS Internal2",
-			"AMIC3", "MIC BIAS External",
-			"DMIC1", "MIC BIAS Internal1",
-			"MIC BIAS Internal1", "Digital Mic1",
-			"DMIC2", "MIC BIAS Internal1",
-			"MIC BIAS Internal1", "Digital Mic2";
+			"AMIC2", "MIC BIAS External2",
+			"AMIC3", "MIC BIAS External";
+
 		pinctrl-names = "cdc_lines_act",
 				"cdc_lines_sus",
-				"cdc_lines_sec_ext_act",
-				"cdc_lines_sec_ext_sus",
-				"cross_conn_det_act",
-				"cross_conn_det_sus";
-		pinctrl-0 = <&cdc_pdm_lines_act>;
-		pinctrl-1 = <&cdc_pdm_lines_sus>;
-		pinctrl-2 = <&cdc_pdm_lines_act &cdc_ext_pa_act
-						&cdc_ext_pa_ws_act>;
-		pinctrl-3 = <&cdc_pdm_lines_sus &cdc_ext_pa_sus
-						&cdc_ext_pa_ws_sus>;
-		pinctrl-4 = <&cross_conn_det_act>;
-		pinctrl-5 = <&cross_conn_det_sus>;
-		qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>;
+				"ext_cdc_tlmm_lines_act",
+				"ext_cdc_tlmm_lines_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act &ext_cdc_tlmm_lines_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus &ext_cdc_tlmm_lines_sus>;
+		pinctrl-2 = <&cdc_pdm_lines_act &ext_cdc_tlmm_lines_act>;
+		pinctrl-3 = <&cdc_pdm_lines_sus &ext_cdc_tlmm_lines_sus>;
+
+		/* qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>; */
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>;
@@ -202,6 +143,7 @@
 		asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 	};
+
 };
 
 &blsp1_uart2 {
@@ -217,24 +159,6 @@
 		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
 		pinctrl-0 = <&gpio_key_active>;
 		pinctrl-1 = <&gpio_key_suspend>;
-
-		camera_focus {
-			label = "camera_focus";
-			gpios = <&msm_gpio 108 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x210>;
-			gpio-key,wakeup;
-			debounce-interval = <15>;
-		};
-
-		camera_snapshot {
-			label = "camera_snapshot";
-			gpios = <&msm_gpio 109 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x2fe>;
-			gpio-key,wakeup;
-			debounce-interval = <15>;
-		};
 
 		vol_up {
 			label = "volume_up";
@@ -253,6 +177,7 @@
 
 &sdhc_1 {
 	vdd-supply = <&pm8916_l8>;
+	qcom,vdd-always-on;
 	qcom,vdd-voltage-level = <2900000 2900000>;
 	qcom,vdd-current-level = <200 400000>;
 
@@ -319,7 +244,7 @@
 		qcom,mode = <1>;		/* Digital output */
 		qcom,invert = <0>;		/* Disable invert */
 		qcom,src-sel = <4>;		/* DTEST1 */
-		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,vin-sel = <3>;		/* VPH_PWR */
 		qcom,master-en = <1>;		/* Enable MPP */
 	};
 };
@@ -332,6 +257,7 @@
 
 	gpio@c100 { /* GPIO 2 */
 		/* NFC_CLK_REQ */
+		status = "disabled";
 		qcom,mode = <0>; /* QPNP_PIN_MODE_DIG_IN */
 		qcom,pull = <5>; /* QPNP_PIN_PULL_NO */
 		qcom,vin-sel = <2>; /* QPNP_PIN_VIN2 */
@@ -350,43 +276,9 @@
 	};
 };
 
-#include "dsi-panel-jdi-1080p-video.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
-};
-
-&dsi_jdi_1080_vid {
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
-	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
-	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
-	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
-
-};
-
-&pmx_mdss {
-	qcom,num-grp-pins = <3>;
-	qcom,pins = <&gp 97>, <&gp 25>, <&gp 98>;
-};
-
-&pmx_mdss_te {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 24>;
-};
-
-&mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
-	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-
-	qcom,platform-enable-gpio = <&msm_gpio 97 0>;
-	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
-	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
-};
-
-&dsi_jdi_1080_vid {
-       qcom,cont-splash-enabled;
 };
 
 &pm8916_chg {
@@ -411,7 +303,7 @@
 &spmi_bus {
 	qcom,pm8916@0 {
 		qcom,leds@a100 {
-			status = "okay";
+			status = "disabled";
 			qcom,led_mpp_2 {
 				label = "mpp";
 				linux,name = "button-backlight";
@@ -479,5 +371,17 @@
 			qcom,vib-timeout-ms = <15000>;
 			qcom,vib-vtg-level-mV = <3100>;
 		};
+	};
+};
+
+&pm8916_mpps{
+	mpp@a100 {
+		qcom,mode = <4>;
+		qcom,ain-route = <1>;
+		qcom,invert = <0>; //No Invert
+		qcom,output-type = <0>; //CMOS
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		status = "ok";
 	};
 };

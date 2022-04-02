@@ -1,0 +1,14 @@
+&smartpa{
+		vivo,tfa98xx-config = "tfa98xx_PD1524F_EX.cnt";
+};
+
+&pm8916_gpios {
+	gpio@c200 { /* GPIO 3 */
+		qcom,mode = <1>; /* QPNP_PIN_MODE_DIG_OUT */
+		qcom,pull = <5>; /* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <3>; /* QPNP_PIN_VIN2 */
+		qcom,src-sel = <2>; /* QPNP_PIN_SEL_FUNC_1 */
+		qcom,master-en = <1>;
+	};
+};
+

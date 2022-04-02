@@ -145,7 +145,7 @@
 				qcom,min-child-idx = <1>;
 			};
 
-			qcom,pm-cluster-level@2{
+			pd1505_pm:qcom,pm-cluster-level@2{
 				reg = <2>;
 				label = "l2-pc";
 				qcom,spm-l2-mode = "pc";

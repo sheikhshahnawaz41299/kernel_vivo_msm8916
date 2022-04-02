@@ -1,0 +1,55 @@
+ /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 and
+* only version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+/dts-v1/;
+
+#include "msm8916-mtp.dtsi"
+#include "msm8916-memory.dtsi"
+#include "smb358.dtsi"
+#include "smb358-diff-pd1505.dtsi"
+#include "msm8916-cdp-vivo-pd1505.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8916 MTP - PD1505";
+	compatible = "qcom,msm8916-mtp", "qcom,msm8916", "qcom,mtp";
+	qcom,board-id = <8 19>;
+};
+
+
+&soc {
+	i2c@78b6000 { /* BLSP1 QUP2 */
+		akm8963@0D {
+			compatible = "akm,akm8963";
+			reg = <0x0D>;
+			ak,layout =<4>;
+			ak,auto-report=<1>;
+			vdd-supply = <&pm8916_l17>;
+			vio-supply = <&pm8916_l6>;
+			iic-address=<0x0C>;
+		};
+		yas533@2E {
+			compatible = "yas533_mag";
+			reg = <0x2E>;
+			ak,layout =<0>;
+			vdd-supply = <&pm8916_l17>;
+			vio-supply = <&pm8916_l6>;
+		};
+		yas537@2F {
+			compatible = "yas537_mag";
+			reg = <0x2F>;
+			ak,layout =<1>;
+			vdd-supply = <&pm8916_l17>;
+			vio-supply = <&pm8916_l6>;
+			iic-address=<0x2E>;
+		};
+	};
+};

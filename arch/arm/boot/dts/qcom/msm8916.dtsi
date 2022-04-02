@@ -49,6 +49,7 @@
 		i2c5 = &i2c_5; /* I2C5 controller device */
 		i2c6 = &i2c_6; /* I2C6 NFC qup6 device */
 		i2c4 = &i2c_4; /* I2C4 controller device */
+		i2c3 = &i2c_3; /* I2C3 controller device breath light flash light*/
 	};
 
 	cpus {
@@ -166,7 +167,7 @@
 		interrupt-names = "cdc-int";
 	};
 
-	restart@4ab000 {
+	restart: restart@4ab000 {
 		compatible = "qcom,pshold";
 		reg = <0x4ab000 0x4>,
 		      <0x193d100 0x4>;
@@ -495,7 +496,7 @@
 		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,hsusb-otg-phy-init-seq =
-			<0x44 0x80 0x6B 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+			<0x74 0x80 0x68 0x81 0x38 0x82 0x33 0x83 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <2>;
@@ -534,7 +535,7 @@
 
 	qcom,rmtfs_sharedmem@8e580000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x86700000 0xe0000>;
+		reg = <0x86690000 0x150000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};
@@ -673,7 +674,7 @@
 			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 
-		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,clk-rates = <400000 25000000 50000000 100000000 /* 200000000 */>; /* Do not support 200000000  */
 
 		status = "disabled";
 	};
@@ -778,8 +779,8 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,bark-time = <20000>;
+		qcom,pet-time = <15000>;
 		qcom,ipi-ping;
 	};
 
@@ -1361,10 +1362,10 @@
 		clock-names = "xo", "rf_clk", "measure", "wcnss_debug",
 				"snoc_qosgen";
 
-		qcom,has-autodetect-xo;
+		/* qcom,has-autodetect-xo; */ /* move to project diff file */
 		qcom,wlan-rx-buff-count = <512>;
-		qcom,is-pronto-vt;
-		qcom,has-pronto-hw;
+		/* qcom,is-pronto-vt;    */ /* move to project diff file */
+		/* qcom,has-pronto-hw;    */ /* move to project diff file */
 		qcom,wcnss-adc_tm = <&pm8916_adc_tm>;
 	};
 
@@ -1426,11 +1427,13 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
-		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-out = <400000>;
 		qcom,clk-freq-in  = <19200000>;
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_0_active>;
 		pinctrl-1 = <&i2c_0_sleep>;
+		qcom,high-time-clk-div = <23>;
+		qcom,fs-clk-div = <22>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
 		qcom,bam-pipe-idx-cons = <6>;
@@ -1450,11 +1453,13 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup5_i2c_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
-		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-out = <400000>;
 		qcom,clk-freq-in  = <19200000>;
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_5_active>;
 		pinctrl-1 = <&i2c_5_sleep>;
+		qcom,high-time-clk-div = <23>;
+		qcom,fs-clk-div = <22>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
 		qcom,bam-pipe-idx-cons = <12>;
@@ -1512,6 +1517,32 @@
 		qcom,master-id = <86>;
 	};
 
+	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr", "bam_phys_addr";
+		reg = <0x78b7000 0x1000>,
+			<0x7884000 0x23000>;
+		interrupt-names = "qup_irq", "bam_irq";
+		interrupts = <0 97 0>, <0 238 0>;
+		qcom,clk-freq-out = <380000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
+		qcom,use-pinctrl;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_3_active>;
+		pinctrl-1 = <&i2c_3_sleep>;
+		qcom,high-time-clk-div = <23>;
+		qcom,fs-clk-div = <22>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,bam-pipe-idx-cons = <8>;
+		qcom,bam-pipe-idx-prod = <9>;
+		qcom,master-id = <86>;
+	};
 	spmi_bus: qcom,spmi@200f000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0x200f000 0x1000>,
@@ -1536,6 +1567,11 @@
 		ranges = <0x0 0x08600000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+		
+		download_mode@0 {
+			compatible = "qcom,msm-imem-download_mode";
+			reg = <0x0 8>;
+		};
 
 		mem_dump_table@10 {
 			compatible = "qcom,msm-imem-mem_dump_table";
@@ -1556,9 +1592,14 @@
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
 		};
+
+		emergency_download_mode@fe0 {
+			compatible = "qcom,msm-imem-emergency_download_mode";
+			reg = <0xfe0 12>;
+		};
 	};
 
-	qcom,venus@1de0000 {
+	venus: qcom,venus@1de0000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x1de0000 0x4000>;
 
@@ -1635,7 +1676,7 @@
 		};
 	};
 
-	qcom,mss@4080000 {
+	mss: qcom,mss@4080000 {
 		compatible = "qcom,pil-q6v56-mss";
 		reg = <0x04080000 0x100>,
 		      <0x04020000 0x040>,
@@ -1767,7 +1808,7 @@
 		};
 	};
 
-	qcom,pronto@a21b000 {
+	pronto: qcom,pronto@a21b000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x0a21b000 0x3000>;
 		interrupts = <0 149 1>;
