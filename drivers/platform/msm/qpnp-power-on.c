@@ -348,6 +348,150 @@ static ssize_t qpnp_pon_dbc_store(struct device *dev,
 
 static DEVICE_ATTR(debounce_us, 0664, qpnp_pon_dbc_show, qpnp_pon_dbc_store);
 
+/*Begin leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+static struct qpnp_pon_config *qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type);
+static int qpnp_config_reset(struct qpnp_pon *pon, struct qpnp_pon_config *cfg);
+static ssize_t qpnp_pon_keyvoldown_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+    struct qpnp_pon *pon = dev_get_drvdata(dev);
+    struct qpnp_pon_config *cfg = NULL;
+    u32 support_reset = 0;
+
+    /*PON_RESIN */
+    cfg = qpnp_get_cfg(pon, PON_RESIN);
+    if(NULL != cfg)
+    {
+        support_reset = cfg->support_reset;
+    }
+    else
+    {
+        support_reset = 0;
+    }
+
+    return snprintf(buf, sizeof(support_reset), "%d\n", support_reset);
+}
+
+static ssize_t qpnp_pon_keyvoldown_store(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t size)
+{
+    struct qpnp_pon *pon = dev_get_drvdata(dev);
+    struct qpnp_pon_config *cfg = NULL;
+    u32 value;
+    int rc = 0;
+
+    rc = kstrtou32(buf, sizeof(value), &value);
+    if (rc)
+        return rc;
+
+    /*PON_RESIN */
+    cfg = qpnp_get_cfg(pon, PON_RESIN);
+    if(NULL == cfg)
+    {
+        printk(KERN_EMERG "%s %d PON_RESIN is NULL\n", __func__, __LINE__);
+        return -EINVAL;
+    }
+
+    cfg->support_reset = !!value;
+    printk(KERN_EMERG "%s %d volume down support_reset = %d\n", __func__, __LINE__, cfg->support_reset);
+
+    if(cfg->support_reset)
+    {
+        cfg->s1_timer = 10256;
+        cfg->s2_timer = 2000;
+        cfg->s2_type = 1;
+
+        rc = qpnp_config_reset(pon, cfg);
+        if(rc)
+        {
+            printk(KERN_EMERG "%s %d Unable to config pon reset\n", __func__, __LINE__);
+        }
+        else
+        {
+            /* special handling for RESIN due to a hardware bug */
+            enable_irq_wake(cfg->bark_irq);
+        }
+    }
+    else
+    {
+        cfg->s1_timer = 0;
+        cfg->s2_timer = 0;
+        cfg->s2_type = 0;
+
+        /* disable S2 reset */
+        rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr, QPNP_PON_S2_CNTL_EN, 0);
+        if (rc)
+        {
+            printk(KERN_EMERG "%s %d Unable to disable S2 reset\n", __func__, __LINE__);
+        }
+
+        disable_irq_wake(cfg->bark_irq);
+    }
+
+    return size;
+}
+
+static DEVICE_ATTR(voldown_status, 0664, qpnp_pon_keyvoldown_show, qpnp_pon_keyvoldown_store);
+
+void qpnp_pon_keyvoldown_ex(int enable)
+{
+    struct qpnp_pon *pon = sys_reset_dev;
+    struct qpnp_pon_config *cfg = NULL;
+    int rc = 0;
+
+    if(NULL == pon)
+    {
+        printk(KERN_EMERG "%s %d pon is NULL!!!\n", __func__, __LINE__);
+        return ;
+    }
+
+    /*PON_RESIN */
+    cfg = qpnp_get_cfg(pon, PON_RESIN);
+    if(NULL == cfg)
+    {
+        printk(KERN_EMERG "%s %d PON_RESIN is NULL\n", __func__, __LINE__);
+        return ;
+    }
+
+    cfg->support_reset = !!enable;
+    printk(KERN_EMERG "%s %d volume down support_reset = %d\n", __func__, __LINE__, cfg->support_reset);
+
+    if(cfg->support_reset)
+    {
+        cfg->s1_timer = 10256;
+        cfg->s2_timer = 2000;
+        cfg->s2_type = 1;
+
+        rc = qpnp_config_reset(pon, cfg);
+        if(rc)
+        {
+            printk(KERN_EMERG "%s %d Unable to config pon reset\n", __func__, __LINE__);
+        }
+        else
+        {
+            /* special handling for RESIN due to a hardware bug */
+            enable_irq_wake(cfg->bark_irq);
+        }
+    }
+    else
+    {
+        cfg->s1_timer = 0;
+        cfg->s2_timer = 0;
+        cfg->s2_type = 0;
+
+        /* disable S2 reset */
+        rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr, QPNP_PON_S2_CNTL_EN, 0);
+        if (rc)
+        {
+            printk(KERN_EMERG "%s %d Unable to disable S2 reset\n", __func__, __LINE__);
+        }
+
+        disable_irq_wake(cfg->bark_irq);
+    }
+}
+EXPORT_SYMBOL(qpnp_pon_keyvoldown_ex);
+/*End leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+
 /**
  * qpnp_pon_system_pwr_off - Configure system-reset PMIC for shutdown or reset
  * @type: Determines the type of power off to perform - shutdown, reset, etc
@@ -604,6 +748,8 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 
 	input_report_key(pon->pon_input, cfg->key_code, key_status);
 	input_sync(pon->pon_input);
+
+	pr_err("PMIC input: code=%d, sts=0x%hhx\n", cfg->key_code, pon_rt_sts);
 
 	cfg->old_state = !!key_status;
 
@@ -1684,6 +1830,14 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 					spmi->dev.of_node,
 					"qcom,store-hard-reset-reason");
 
+/*Begin leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+    rc = device_create_file(&spmi->dev, &dev_attr_voldown_status);
+    if (rc) {
+        dev_err(&spmi->dev, "sys file voldown_status creation failed\n");
+        return rc;
+    }
+/*End leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+
 	qpnp_pon_debugfs_init(spmi);
 	return rc;
 }
@@ -1693,6 +1847,9 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
 
 	device_remove_file(&spmi->dev, &dev_attr_debounce_us);
+/*Begin leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+        device_remove_file(&spmi->dev, &dev_attr_voldown_status);
+/*End leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
 
 	cancel_delayed_work_sync(&pon->bark_work);
 
