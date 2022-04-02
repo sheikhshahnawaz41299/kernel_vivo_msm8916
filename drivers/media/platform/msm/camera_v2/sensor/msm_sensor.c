@@ -489,6 +489,7 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
 	uint16_t chipid = 0;
+	uint16_t subid = 0;//xuyongfu add
 	struct msm_camera_i2c_client *sensor_i2c_client;
 	struct msm_camera_slave_info *slave_info;
 	const char *sensor_name;
@@ -516,9 +517,33 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		pr_err("%s: %s: read id failed\n", __func__, sensor_name);
 		return rc;
 	}
-
-	CDBG("%s: read id: 0x%x expected id 0x%x:\n", __func__, chipid,
+	//xuyongfu
+	/*Distinguish the OV8858 R1A and R2A by subid(reg addr 0x302a)  with the same sensor id 0x8858*/
+	if(0x8858 == chipid){
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+		sensor_i2c_client, 0x302a, &subid, MSM_CAMERA_I2C_BYTE_DATA);
+		if (rc < 0) {
+			pr_err("%s: %s: read OV8858 sub id failed\n", __func__, sensor_name);
+			return rc;
+				}
+		if(0xb2 == subid){                 /*OV8858 R2A sub id 0xb2*/
+			if(strcmp(sensor_name, "ov8858_2a"))
+				return -ENODEV;
+		}
+		else if(0xb1 == subid){	     /*OV8858 R1A sub id 0xb1*/
+			if(strcmp(sensor_name, "ov8858"))
+				return -ENODEV;
+			}
+		}
+	//add end
+	pr_err("%s: read id: 0x%x expected id 0x%x:\n", __func__, chipid,
 		slave_info->sensor_id);
+      CDBG("%s: sensor name %s \n", __func__, s_ctrl->sensordata->sensor_name);
+      if(strcmp(s_ctrl->sensordata->sensor_name, "hi259") == 0) {
+            chipid &= 0xff00;
+            CDBG("%s: chipid 0x%x", __func__, chipid);
+      }
+
 	if (chipid != slave_info->sensor_id) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
