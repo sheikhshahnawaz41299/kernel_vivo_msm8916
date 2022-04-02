@@ -504,6 +504,10 @@ static const char * const i2c_msm_dbg_tag_val_to_str_tbl[] = {
 	"FLUSH STOP",		/* 0x96 */
 };
 
+/* vivo add */
+int qup_i2c_suspended = 0;  
+EXPORT_SYMBOL_GPL(qup_i2c_suspended); 
+
 static const char *i2c_msm_dbg_tag_val_to_str(u8 tag_val)
 {
 	if ((tag_val < 0x80) || (tag_val > 0x96) || (tag_val == 0x84) ||
@@ -3987,6 +3991,7 @@ static int i2c_msm_pm_sys_suspend_noirq(struct device *dev)
 		pm_runtime_set_suspended(dev);
 		pm_runtime_enable(dev);
 	}
+	qup_i2c_suspended = 1;
 
 	return ret;
 }
@@ -4002,6 +4007,9 @@ static int i2c_msm_pm_sys_resume_noirq(struct device *dev)
 	mutex_lock(&ctrl->xfer.mtx);
 	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
 	mutex_unlock(&ctrl->xfer.mtx);
+
+	qup_i2c_suspended = 0;
+
 	return  0;
 }
 #endif
