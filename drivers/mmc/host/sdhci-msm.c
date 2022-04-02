@@ -316,6 +316,7 @@ struct sdhci_msm_pltfm_data {
 	u32 *cpu_dma_latency_us;
 	unsigned int cpu_dma_latency_tbl_sz;
 	int status_gpio; /* card detection GPIO that is configured as IRQ */
+        int vtf_gpio;
 	struct sdhci_msm_bus_voting_data *voting_data;
 	u32 *sup_clk_table;
 	unsigned char sup_clk_cnt;
@@ -1646,6 +1647,7 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 		goto out;
 	}
 
+        pdata->vtf_gpio = of_get_named_gpio_flags(np, "cd-gpios-vtf", 0, &flags);
 	pdata->status_gpio = of_get_named_gpio_flags(np, "cd-gpios", 0, &flags);
 	if (gpio_is_valid(pdata->status_gpio) & !(flags & OF_GPIO_ACTIVE_LOW))
 		pdata->caps2 |= MMC_CAP2_CD_ACTIVE_HIGH;
@@ -2128,15 +2130,18 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_pltfm_data *pdata,
 		goto out;
 	}
 
-	vreg_table[0] = curr_slot->vdd_data;
-	vreg_table[1] = curr_slot->vdd_io_data;
+	vreg_table[1] = curr_slot->vdd_data;
+	vreg_table[0] = curr_slot->vdd_io_data;
 
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
 			if (enable)
 				ret = sdhci_msm_vreg_enable(vreg_table[i]);
 			else
+			{
 				ret = sdhci_msm_vreg_disable(vreg_table[i]);
+				msleep(5);
+			}
 			if (ret)
 				goto out;
 		}
@@ -2160,6 +2165,7 @@ static int sdhci_msm_vreg_reset(struct sdhci_msm_pltfm_data *pdata)
 	return ret;
 }
 
+extern unsigned int is_atboot;
 /* This init function should be called only once for each SDHC slot */
 static int sdhci_msm_vreg_init(struct device *dev,
 				struct sdhci_msm_pltfm_data *pdata,
@@ -2195,6 +2201,8 @@ static int sdhci_msm_vreg_init(struct device *dev,
 			goto vdd_reg_deinit;
 	}
 	ret = sdhci_msm_vreg_reset(pdata);
+	if(is_atboot!=1)
+		mdelay(500);
 	if (ret)
 		dev_err(dev, "vreg reset failed (%d)\n", ret);
 	goto out;
@@ -3526,6 +3534,19 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	init_completion(&msm_host->pwr_irq_completion);
 
+    
+    /*add by liuruyi*/
+    if (gpio_is_valid(msm_host->pdata->vtf_gpio)) {
+               ret = mmc_gpio_request_cd_vtf(msm_host->mmc,
+                               msm_host->pdata->vtf_gpio);
+               if (ret) {
+                       dev_err(&pdev->dev, "%s: Failed to request card detection vtf IRQ %d\n",
+                                       __func__, ret);
+                       goto vreg_deinit;
+               }
+       }
+    /*end*/
+
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		/*
 		 * Set up the card detect GPIO in active configuration before
@@ -3642,6 +3663,8 @@ remove_host:
 free_cd_gpio:
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_gpio_free_cd(msm_host->mmc);
+        if (gpio_is_valid(msm_host->pdata->vtf_gpio))
+        mmc_gpio_free_cd_vtf(msm_host->mmc);    
 	if (sdhci_is_valid_gpio_wakeup_int(msm_host))
 		free_irq(msm_host->pdata->sdiowakeup_irq, host);
 vreg_deinit:
@@ -3697,6 +3720,8 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_gpio_free_cd(msm_host->mmc);
+        if (gpio_is_valid(msm_host->pdata->vtf_gpio))
+           mmc_gpio_free_cd_vtf(msm_host->mmc);
 
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 
@@ -3826,7 +3851,8 @@ static int sdhci_msm_suspend(struct device *dev)
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_gpio_free_cd(msm_host->mmc);
-
+        if (gpio_is_valid(msm_host->pdata->vtf_gpio))
+           mmc_gpio_free_cd_vtf(msm_host->mmc);
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
 		mmc_hostname(host->mmc), __func__);
@@ -3853,6 +3879,14 @@ static int sdhci_msm_resume(struct device *dev)
 					mmc_hostname(host->mmc), __func__, ret);
 	}
 
+        if (gpio_is_valid(msm_host->pdata->vtf_gpio)) {
+           ret = mmc_gpio_request_cd_vtf(msm_host->mmc,
+                           msm_host->pdata->vtf_gpio);
+           if (ret)
+                   pr_err("%s: %s: Failed to request card detection VTF IRQ %d\n",
+                                   mmc_hostname(host->mmc), __func__, ret);
+   }
+    
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
 		mmc_hostname(host->mmc), __func__);
