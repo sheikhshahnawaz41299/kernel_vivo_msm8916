@@ -43,6 +43,7 @@
 #include <linux/msm-sps.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <linux/regulator/consumer.h>
 #include "spi_qsd.h"
 
 static int msm_spi_pm_resume_runtime(struct device *device);
@@ -2507,6 +2508,30 @@ static int msm_spi_probe(struct platform_device *pdev)
 				"using default bus_num %d\n", pdev->id);
 		else
 			master->bus_num = pdev->id = rc;
+		if(master->bus_num==6){
+			struct regulator *vreg;
+			vreg = regulator_get(&pdev->dev,"vcc_spi");
+			if (!vreg) {
+				dev_err(&pdev->dev, "Unable to get vcc_spi\n");
+			//	return -1;
+			}
+			else{
+				if (regulator_count_voltages(vreg) > 0) {
+					rc = regulator_set_voltage(vreg, 1800000,1800000);
+					if (rc){
+						dev_err(&pdev->dev,"Unable to set voltage on vcc_spi");
+				//		return -1;
+					}
+				}
+				rc = regulator_enable(vreg);
+				if (rc) {
+					dev_err(&pdev->dev, "error enabling vcc_spi %d\n",rc);
+					regulator_put(vreg);
+					vreg = NULL;
+				}
+				dev_warn(&pdev->dev,"Set voltage on vcc_spi for fpc");
+			}
+		}
 	} else {
 		pdata = pdev->dev.platform_data;
 		dd->qup_ver = SPI_QUP_VERSION_NONE;
