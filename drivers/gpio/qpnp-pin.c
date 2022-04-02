@@ -780,6 +780,38 @@ static int qpnp_pin_set_mode(struct qpnp_pin_chip *q_chip,
 	return rc;
 }
 
+int mpp_set_mode(int gpio, int mode)
+{
+	int rc, chip_offset;
+	struct qpnp_pin_chip *q_chip;
+	struct qpnp_pin_spec *q_spec = NULL;
+	struct gpio_chip *gpio_chip;
+
+	mutex_lock(&qpnp_pin_chips_lock);
+	list_for_each_entry(q_chip, &qpnp_pin_chips, chip_list) {
+		gpio_chip = &q_chip->gpio_chip;
+		if (gpio >= gpio_chip->base
+				&& gpio < gpio_chip->base + gpio_chip->ngpio) {
+			chip_offset = gpio - gpio_chip->base;
+			q_spec = qpnp_chip_gpio_get_spec(q_chip, chip_offset);
+			if (WARN_ON(!q_spec)) {
+				mutex_unlock(&qpnp_pin_chips_lock);
+				return -ENODEV;
+			}
+			break;
+		}
+	}
+	mutex_unlock(&qpnp_pin_chips_lock);
+
+	if (!q_spec)
+		return -ENODEV;
+
+	rc = qpnp_pin_set_mode(q_chip,q_spec,mode);
+
+	return rc;
+}
+EXPORT_SYMBOL(mpp_set_mode);
+
 static int qpnp_pin_direction_input(struct gpio_chip *gpio_chip,
 		unsigned offset)
 {
