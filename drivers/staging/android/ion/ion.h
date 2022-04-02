@@ -28,6 +28,10 @@ struct ion_mapper;
 struct ion_client;
 struct ion_buffer;
 
+//@vivo huangwenke-Performance FREE_ION_CACHED begin
+#define DEBUG_HEAP_SHRINKER
+//@vivo huangwenke-Performance FREE_ION_CACHED end
+
 /* This should be removed some day when phys_addr_t's are fully
    plumbed in the kernel, and all instances of ion_phys_addr_t should
    be converted to phys_addr_t.  For the time being many kernel interfaces
