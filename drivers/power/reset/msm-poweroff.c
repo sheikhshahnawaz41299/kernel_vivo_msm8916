@@ -43,6 +43,9 @@
 #define SCM_EDLOAD_MODE			0X01
 #define SCM_DLOAD_CMD			0x10
 
+extern unsigned long log_addr;
+extern unsigned int log_first_idx;
+extern unsigned int log_next_idx;
 
 static int restart_mode;
 void *restart_reason;
@@ -105,9 +108,42 @@ static void set_dload_mode(int on)
 	int ret;
 
 	if (dload_mode_addr) {
-		__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
-		__raw_writel(on ? 0xCE14091A : 0,
-		       dload_mode_addr + sizeof(unsigned int));
+		//__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
+		//__raw_writel(on ? 0xCE14091A : 0,
+		//      dload_mode_addr + sizeof(unsigned int));
+		__raw_writel(0xffffffff,dload_mode_addr + 6*sizeof(unsigned int));
+		mb();
+	}
+
+	ret = scm_set_dload_mode(on ? SCM_DLOAD_MODE : 0, 0);
+	if (ret)
+		pr_err("Failed to set secure DLOAD mode: %d\n", ret);
+
+	dload_mode_enabled = on;
+}
+
+static void set_dload_mode_bbk(int on)
+{
+	int ret;
+
+	printk("set_dload_mode_bbk[%d]!!!\n", on);
+
+	if (dload_mode_addr) {
+		//__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
+		//__raw_writel(on ? 0xCE14091A : 0,
+		//	dload_mode_addr + sizeof(unsigned int));
+		//cookie_ptr->uefi_ram_dump_magic, 32bit
+		__raw_writel(on ? 0x2 : 0xffffffff,
+			dload_mode_addr + 6*sizeof(unsigned int));
+		//cookie_ptr->etb_buf_addr, 64bit
+		__raw_writel(__pa(log_addr),
+			dload_mode_addr + 2*sizeof(unsigned int));
+		//cookie_ptr->first_log, 64bit
+		__raw_writel(__pa(&log_first_idx),
+			dload_mode_addr + 12*sizeof(unsigned int));
+		//cookie_ptr->next_log, 64bit
+		__raw_writel(__pa(&log_next_idx),
+			dload_mode_addr + 14*sizeof(unsigned int));
 		mb();
 	}
 
@@ -164,12 +200,21 @@ static int dload_set(const char *val, struct kernel_param *kp)
 		return -EINVAL;
 	}
 
-	set_dload_mode(download_mode);
+/*Begin leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+        /*if downloadmode is true, enable long press the voldown into the dump*/
+        qpnp_pon_keyvoldown_ex(download_mode);
+/*End leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+
+	if(download_mode)
+		set_dload_mode(download_mode);
+	else
+		set_dload_mode_bbk(1);
 
 	return 0;
 }
 #else
 #define set_dload_mode(x) do {} while (0)
+#define set_dload_mode_bbk(x) do {} while (0)
 
 static void enable_emergency_dload_mode(void)
 {
@@ -222,9 +267,13 @@ static void msm_restart_prepare(const char *cmd)
 	 * Write download mode flags if restart_mode says so
 	 * Kill download mode if master-kill switch is set
 	 */
-
+	pr_crit("download_mode[%d], in_panic[%d]\n", download_mode, in_panic);
+	if(download_mode) {
 	set_dload_mode(download_mode &&
 			(in_panic || restart_mode == RESTART_DLOAD));
+	} else {
+		set_dload_mode_bbk(in_panic);
+	}
 #endif
 
 	if (qpnp_pon_check_hard_reset_stored()) {
@@ -254,7 +303,17 @@ static void msm_restart_prepare(const char *cmd)
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
 			__raw_writel(0x77665500, restart_reason);
-		} else if (!strncmp(cmd, "recovery", 8)) {
+		} else  if (!strncmp(cmd, "silent", 6)) {//lizonglin add for boot into silent mode 
+			qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_BOOT_SILENT);
+			pr_notice("Going restart boot-silent now\n");
+			__raw_writel(0x77665552, restart_reason);
+		}else  if (!strncmp(cmd, "recsilent", 9)) {//miaoqiang  add for boot into recovery silent mode 
+			qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_RECOVERY_SILENT);
+			pr_notice("Going restart boot-recsilent now\n");
+			__raw_writel(0x77665572, restart_reason);
+		} else  if (!strncmp(cmd, "recovery", 8)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_RECOVERY);
 			__raw_writel(0x77665502, restart_reason);
@@ -274,6 +333,7 @@ static void msm_restart_prepare(const char *cmd)
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
+		//set_dload_mode_bbk(0);//dont't set the magic number if cmd if not null
 	}
 
 	flush_cache_all();
@@ -399,6 +459,11 @@ static int msm_restart_probe(struct platform_device *pdev)
 		dload_mode_addr = of_iomap(np, 0);
 		if (!dload_mode_addr)
 			pr_err("unable to map imem DLOAD offset\n");
+		else
+			printk("map imem DLOAD offset success\n");
+
+		if (of_property_read_bool(dev->of_node, "qcom,download_mode-disable"))
+			download_mode = 0;
 	}
 
 	np = of_find_compatible_node(NULL, NULL, EDL_MODE_PROP);
@@ -409,7 +474,11 @@ static int msm_restart_probe(struct platform_device *pdev)
 		if (!emergency_dload_mode_addr)
 			pr_err("unable to map imem EDLOAD mode offset\n");
 	}
-
+	
+    if(download_mode)
+		set_dload_mode(download_mode);
+	else
+		set_dload_mode_bbk(1);
 #endif
 	np = of_find_compatible_node(NULL, NULL,
 				"qcom,msm-imem-restart_reason");
@@ -442,8 +511,11 @@ static int msm_restart_probe(struct platform_device *pdev)
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
 
-	set_dload_mode(download_mode);
-
+	if(download_mode)
+		set_dload_mode(download_mode);
+	else
+		set_dload_mode_bbk(1);
+	pr_err("msm_restart_probe done\n");
 	return 0;
 
 err_restart_reason:
