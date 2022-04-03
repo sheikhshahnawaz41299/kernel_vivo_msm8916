@@ -113,7 +113,17 @@ bool early_boot_irqs_disabled __read_mostly;
 
 enum system_states system_state __read_mostly;
 EXPORT_SYMBOL(system_state);
+unsigned int is_atboot;
+EXPORT_SYMBOL(is_atboot);
 
+unsigned int power_off_charging_mode;
+EXPORT_SYMBOL(power_off_charging_mode);
+
+unsigned int bsp_test_mode;
+EXPORT_SYMBOL(bsp_test_mode);
+
+//unsigned int pa_leaked_restore_mode;
+//EXPORT_SYMBOL(pa_leaked_restore_mode);
 /*
  * Boot command-line arguments
  */
@@ -471,7 +481,40 @@ static void __init mm_init(void)
 	pgtable_cache_init();
 	vmalloc_init();
 }
+static void __init is_at_boot(char *command_line)
+{
+	char * special_str = "sendSP";
+	char * at_str = "sendAT";
+	char * is_charge_boot = "androidboot.mode=charger";
+	char * is_bsptmode = "boot_bsptmode=1";
 
+	if(strstr(command_line,is_bsptmode) == NULL){
+		bsp_test_mode = 0;
+	}else{
+		bsp_test_mode = 1;
+	}
+
+//	char * is_pa_leaked = "pa_leaked=1";
+	if(strstr(command_line,is_charge_boot) == NULL){
+		power_off_charging_mode = 0;
+	}else{
+		power_off_charging_mode = 1;
+	}
+//	if(strstr(command_line,is_pa_leaked) == NULL){
+//		pa_leaked_restore_mode = 0;
+//	}else{
+//		pa_leaked_restore_mode = 1;
+//	}
+	if ((strstr(command_line,special_str) == NULL)
+		&& (strstr(command_line,at_str) == NULL))
+	{
+		pr_info("Current boot_mode is Not at mode\n");
+		is_atboot =0;
+		return ;
+	}
+	pr_warn("======AT Mode Booting.....\n");
+	is_atboot =1;
+}
 asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
@@ -505,6 +548,7 @@ asmlinkage void __init start_kernel(void)
 	mm_init_owner(&init_mm, &init_task);
 	mm_init_cpumask(&init_mm);
 	setup_command_line(command_line);
+	is_at_boot(command_line);//add by liuyunyu2014-2-22@settingteams for add AT mode
 	setup_nr_cpu_ids();
 	setup_per_cpu_areas();
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
