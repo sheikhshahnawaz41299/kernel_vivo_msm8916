@@ -11,5 +11,17 @@ config SWITCH_GPIO
 	depends on GPIOLIB
 	help
 	  Say Y here to enable GPIO based switch support.
+	  
+config SWITCH_HALL
+	tristate "GPIO Swith support"
+	depends on GPIOLIB
+	help
+	  Say Y here to enable GPIO based switch support.
+
+config BBK_SWITCH_GSENSOR_INT1
+	tristate "GPIO Swith gsensor interrupt1"
+	depends on GPIOLIB
+	help
+	  Say Y here to enable GPIO based switch support.
 
 endif # SWITCH
