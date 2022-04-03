@@ -67,3 +67,4 @@ obj-$(CONFIG_TI_DRV2667) += ti_drv2667.o
 obj-$(CONFIG_QPNP_MISC) += qpnp-misc.o
 obj-$(CONFIG_QCOM_LIQUID_DOCK)	+= qcom_liquid_dock.o
 obj-y				+= qcom/
+obj-$(CONFIG_NFC_NXP_PN5XX) += pn5xx_i2c.o # VIVO_NFC

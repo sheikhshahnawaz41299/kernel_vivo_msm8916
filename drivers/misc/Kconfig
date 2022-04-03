@@ -620,6 +620,20 @@ config QCOM_LIQUID_DOCK
 	  the docking station of various models of Qualcomm Technology's
 	  LiQUID Mobile Development Platforms.
 
+# VIVO_NFC
+config NFC_NXP_PN5XX
+	tristate "NXP PN5XX based driver"
+	depends on I2C
+	select CRC_CCITT
+	default n
+	help
+	  NXP PN5XX driver based on I2C.
+	  This is a driver to provides I2C access to PN5xx NFC Controller devices
+
+	  To compile this driver as a module, choose m here. The module will
+	  be called pn5xx_i2c.
+	  Say N if unsure.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
