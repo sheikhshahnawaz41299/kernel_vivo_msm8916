@@ -518,6 +518,20 @@ config LEDS_BLINKM
 	  This option enables support for the BlinkM RGB LED connected
 	  through I2C. Say Y to enable support for the BlinkM LED.
 
+config BBK_LEDS_KTD2026
+	tristate "Indicator Light driver for KTD2026"
+	depends on LEDS_CLASS
+	depends on I2C
+	help
+	  This option enables support for the ktd1026 for indicator light.
+	  
+config LEDS_VIVO
+	tristate "Indicator Light driver for KTD2026"
+	depends on LEDS_CLASS
+	depends on GPIO_QPNP_PIN
+	help
+	  This option enables support for the indicator light.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
