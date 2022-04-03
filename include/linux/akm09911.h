@@ -42,6 +42,10 @@
 #define AK09911_WIA1_VALUE		0x48
 #define AK09911_WIA2_VALUE		0x05
 
+#define AKM09911_RETRY_COUNT	10
+#define AKM09911_BUFSIZE		0x20
+
+
 /*** Limit of factory shipment test *******************************************/
 #define TLIMIT_TN_REVISION_09911				""
 #define TLIMIT_TN_RST_WIA1_09911				"RST_WIA1"

@@ -24,6 +24,16 @@
 #define SENSORS_PROXIMITY_HANDLE		4
 #define SENSORS_GYROSCOPE_HANDLE		5
 #define SENSORS_PRESSURE_HANDLE			6
+/*laizhilong add for step counter start*/
+#define SENSOR_STEP_DETECTOR_HANDLE		18
+#define SENSOR_STEP_COUNTER_HANDLE		19
+/*laizhilong add for step counter end*/
+//vivo xuling add for IR Gesture sensor 
+#define SENSORS_GESTURE_HANDLE             26
+//vivo xuling add end
+//vivo haosirong add for proximity across detect
+#define SENSORS_PROXIMITY_ACROSS_HANDLE	28
+//vivo haosirong add end
 
 #define SENSOR_TYPE_ACCELEROMETER		1
 #define SENSOR_TYPE_GEOMAGNETIC_FIELD		2
@@ -46,6 +56,14 @@
 #define SENSOR_TYPE_STEP_DETECTOR		18
 #define SENSOR_TYPE_STEP_COUNTER		19
 #define SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR	20
+//vivo xuling add for IR Gesture sensor && proximity sensor
+#define SENSOR_TYPE_GESTURE             27
+//vivo xuling add end
+
+//vivo haosirong add for proximity across detect
+#define SENSOR_TYPE_PROXIMITY_ACROSS	28
+//vivo haosirong add end
+
 
 enum LIS3DH_AXIS {
 	AXIS_X = 0,

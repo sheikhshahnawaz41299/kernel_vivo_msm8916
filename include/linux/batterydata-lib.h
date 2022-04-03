@@ -149,7 +149,155 @@ extern struct bms_battery_data  desay_5200_data;
 extern struct bms_battery_data  oem_batt_data;
 extern struct bms_battery_data QRD_4v35_2000mAh_data;
 extern struct bms_battery_data  qrd_4v2_1300mah_data;
+/* the corresponding relationship of the battery ID and the battery internal Resistance value.
+            formula:  ( R_pull-up / "qcom,batt-id-kohm" ) = (refs-vdd/(batt ID * scale))
+                           R_pull-up = "qcom,rpull-up-kohm = <100>"
+                           refs-vdd = "qcom,vref-batt-therm = <1800000>"
+                           scale = 300000
 
+    the battery ID: enum battery_id element in Batterydata-lib.h.
+    the battery internal Resistance value: the dtsi property value of "qcom,batt-id-kohm" in batterydata-palladium-xxxx.dtsi
+    B_THE_FIRST_SUPPLIER ----> qcom,batt-id-kohm = <20>
+    B_THE_SECEND_SUPPLIER ----> qcom,batt-id-kohm = <50>
+    B_THE_THIRD_SUPPLIER ----> qcom,batt-id-kohm = <100>
+    B_THE_FOURTH_SUPPLIER ----> qcom,batt-id-kohm = <200>
+    
+    this above relationship must be accurate, otherwise bms can not load the right paramter of battery curve according to battery id.
+*/
+enum battery_id{
+	B_UNKOWN = 0,
+    B_THE_1_SUPPLIER,
+    B_THE_2_SUPPLIER,
+    B_THE_3_SUPPLIER,
+    B_THE_4_SUPPLIER,
+    B_THE_5_SUPPLIER,
+    B_THE_6_SUPPLIER,
+    B_THE_7_SUPPLIER,
+	B_MAX,
+};
+static const char * const battery_id_strings[] = {
+	"unkown battery supplier",
+	"the 1 battery supplier : 33k--(20kohm)",
+	"the 2 battery supplier : 100k--(50kohm)",
+	"the 3 battery supplier : 10k--(100kohm)",
+	"the 4 battery supplier : 33K,4.7uf--(200kohm)",
+	"the 5 battery supplier : 33k,10uf--(500kohm)",
+	"the 6 battery supplier : 100k,2.2uf--(0kohm)",
+	"the 7 battery supplier : 100k,10uf--(-699kohm)",
+	"out of the battery supplier range",
+};
+struct tc_item{
+	int		min;
+	int		max;
+	int		scale;
+};
+struct r_item{
+	int		v1min;
+	int		v1max;
+	int		id;
+};
+struct rc_item{
+	int		v1min;
+	int		v1max;
+	int		v2min;
+	int		v2max;
+	int		id;
+};
+/*
+#if 1//defined(PD1401V) || defined(PD1401F)||defined(PD1401F_EX)
+static struct tc_item tc_items[] = {
+	{
+		.min	= 549,
+		.max	= 8888,
+		.scale	= 0,
+	},
+	{
+		.min	= 451,
+		.max	= 550,
+		.scale	= 45,
+	},
+	{
+		.min	= 51,
+		.max	= 450,
+		.scale	= 50,
+	},
+	{
+		.min	= 1,
+		.max	= 50,
+		.scale	= 30,
+	},
+	{
+		.min	= -29,
+		.max	= 0,
+		.scale	= 30,
+	},
+	{
+		.min	= -79,
+		.max	= -30,
+		.scale	= 15,
+	},
+	{
+		.min	= -8888,
+		.max	= -80,
+		.scale	= 0,
+	},
+};
+#else
+static const struct tc_item tc_items[] = {
+	{
+		.min	= 551,
+		.max	= 8888,
+		.scale	= 0,
+	},
+	{
+		.min	= 451,
+		.max	= 550,
+		.scale	= 45,
+	},
+	{
+		.min	= 51,
+		.max	= 450,
+		.scale	= 50,
+	},
+	{
+		.min	= 1,
+		.max	= 50,
+		.scale	= 30,
+	},
+	{
+		.min	= -30,
+		.max	= 0,
+		.scale	= 25,
+	},
+	{
+		.min	= -79,
+		.max	= -31,
+		.scale	= 15,
+	},
+	{
+		.min	= -8888,
+		.max	= -80,
+		.scale	= 0,
+	},
+};
+#endif
+static const struct rc_item rc_items[] = { 
+	{
+		.v1min	= 746,
+		.v1max	= 966,
+		.v2min	= 337,
+		.v2max	= 509,
+		.id		= B_73_ATL,
+	},
+	{
+		.v1min	= 1117,
+		.v1max	= 1398,
+		.v2min	= 825,
+		.v2max	= 1113,
+		.id		= B_73_SONY,
+	},
+};
+*/
 int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp);
 int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc);
 int interpolate_scalingfactor_fcc(struct single_row_lut *fcc_sf_lut,

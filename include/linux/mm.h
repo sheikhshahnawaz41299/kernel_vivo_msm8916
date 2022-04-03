@@ -1734,6 +1734,9 @@ static inline struct page *follow_page(struct vm_area_struct *vma,
 #define FOLL_HWPOISON	0x100	/* check page is hwpoisoned */
 #define FOLL_NUMA	0x200	/* force NUMA hinting page fault */
 #define FOLL_MIGRATION	0x400	/* wait for page to replace migration entry */
+//begin XieJiYuan@20161026@fix dirtyCOW(CVE-2016-5195) exploit, refer to kernel commit 19be0eaffa3ac7d8eb6784ad9bdbc7d67ed8e619
+#define FOLL_COW	0x4000	/* internal GUP flag */
+//end
 
 typedef int (*pte_fn_t)(pte_t *pte, pgtable_t token, unsigned long addr,
 			void *data);

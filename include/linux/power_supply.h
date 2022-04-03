@@ -60,6 +60,8 @@ enum {
 	POWER_SUPPLY_HEALTH_COOL,
 	POWER_SUPPLY_HEALTH_WATCHDOG_TIMER_EXPIRE,
 	POWER_SUPPLY_HEALTH_SAFETY_TIMER_EXPIRE,
+        /* @vivo add for Dual-engine */
+        POWER_SUPPLY_HEALTH_DUAL_ENGINE,
 };
 
 enum {
@@ -158,6 +160,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
+	POWER_SUPPLY_PROP_CURRENT_AC_AVG_NOW,
 	/* unit is in ohms due to ID being typically in kohm range */
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_RESISTANCE_NOW,
@@ -166,6 +169,13 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_USB_OTG,
 	POWER_SUPPLY_PROP_CHARGE_ENABLED,
 	POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CHECK_FAST_CHARGE,
+	POWER_SUPPLY_PROP_ENABLE_FAST_CHARGE,
+	POWER_SUPPLY_PROP_CALLING_STATE,
+	POWER_SUPPLY_PROP_WEAK_CHARGER,
+	POWER_SUPPLY_PROP_IIC_STATE,
+	POWER_SUPPLY_PROP_FIXED_TEMP,
+	POWER_SUPPLY_PROP_FACTORY_MODE_STATE,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
@@ -173,6 +183,16 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	POWER_SUPPLY_PROP_DC_RESENT,
+	POWER_SUPPLY_PROP_DC_CUTOFF,
+	POWER_SUPPLY_PROP_HEALTH_STATUS,
+	POWER_SUPPLY_PROP_CHG_TYPE,
+	POWER_SUPPLY_PROP_MPP2,
+	POWER_SUPPLY_PROP_LIMIT_INPUT,
+	POWER_SUPPLY_PROP_VINDPM,
+	POWER_SUPPLY_PROP_FORCE_DPDM,
+	POWER_SUPPLY_PROP_RECHARGE_STATE,
+	POWER_SUPPLY_PROP_DUMP_REG,
 };
 
 enum power_supply_type {
@@ -184,9 +204,11 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* Charging Downstream Port */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
+	POWER_SUPPLY_TYPE_USB_HVDCP,	/* High Voltage DCP */
 	POWER_SUPPLY_TYPE_WIRELESS,	/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
-	POWER_SUPPLY_TYPE_USB_PARALLEL,		/* USB Parallel Path */
+	POWER_SUPPLY_TYPE_USB_PARALLEL,		/* USB Parallel Path */	
+	POWER_SUPPLY_TYPE_USB_FLOATED,/*Floated Charger only for BBK_FOR_NET_ENTRY*/
 };
 
 union power_supply_propval {
@@ -198,6 +220,7 @@ union power_supply_propval {
 struct power_supply {
 	const char *name;
 	enum power_supply_type type;
+	enum power_supply_type power_type;
 	enum power_supply_property *properties;
 	size_t num_properties;
 
@@ -360,6 +383,7 @@ static inline bool power_supply_is_amp_property(enum power_supply_property psp)
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
+	case POWER_SUPPLY_PROP_CURRENT_AC_AVG_NOW:
 	case POWER_SUPPLY_PROP_FLASH_CURRENT_MAX:
 		return 1;
 	default:
