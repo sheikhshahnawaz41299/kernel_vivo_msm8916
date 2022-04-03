@@ -484,10 +484,6 @@ struct fuse_conn {
 	/** Set if bdi is valid */
 	unsigned bdi_initialized:1;
 
-
-	/** Shortcircuited IO. */
-	unsigned shortcircuit_io:1;
-
 	/*
 	 * The following bitfields are only for optimization purposes
 	 * and hence races in setting them will not cause malfunction
@@ -555,6 +551,9 @@ struct fuse_conn {
 
 	/** Does the filesystem support asynchronous direct-IO submission? */
 	unsigned async_dio:1;
+    
+    /** Shortcircuited IO. */
+	unsigned shortcircuit_io:1;
 
 	/** The number of requests waiting for completion */
 	atomic_t num_waiting;
