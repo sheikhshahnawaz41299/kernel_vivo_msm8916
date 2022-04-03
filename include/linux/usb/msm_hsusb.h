@@ -298,8 +298,10 @@ struct msm_otg_platform_data {
 	bool enable_ahb2ahb_bypass;
 	bool disable_retention_with_vdd_min;
 	int usb_id_gpio;
+	int usbid_adc_volt_gpio;
 	bool phy_dvdd_always_on;
 	struct clk *system_clk;
+	bool usbid_adc_used;
 };
 
 /* phy related flags */
@@ -456,10 +458,12 @@ struct msm_otg {
 	struct delayed_work chg_work;
 	struct delayed_work id_status_work;
 	struct delayed_work suspend_work;
+	struct delayed_work usbid_adc_work;
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	unsigned dcd_time;
 	struct wake_lock wlock;
+	struct wake_lock switchlock;
 	struct notifier_block usbdev_nb;
 	unsigned mA_port;
 	struct timer_list id_timer;
@@ -525,6 +529,7 @@ struct msm_otg {
 	struct hrtimer timer;
 	struct power_supply usb_psy;
 	unsigned int online;
+	bool		 vbus_active;
 	unsigned int host_mode;
 	unsigned int voltage_max;
 	unsigned int current_max;
@@ -543,6 +548,12 @@ struct msm_otg {
 	struct qpnp_vadc_chip	*vadc_dev;
 	int ext_id_irq;
 	wait_queue_head_t	host_suspend_wait;
+	bool id_pin_init_low;
+
+	bool id_pin_state;
+	bool last_id_pin_state;
+	bool id_state_error;
+	bool id_state_change;
 };
 
 struct ci13xxx_platform_data {
