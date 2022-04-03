@@ -1332,7 +1332,7 @@ static const struct mount_opts {
 	{Opt_bsd_df, EXT4_MOUNT_MINIX_DF, MOPT_CLEAR},
 	{Opt_grpid, EXT4_MOUNT_GRPID, MOPT_SET},
 	{Opt_nogrpid, EXT4_MOUNT_GRPID, MOPT_CLEAR},
-	{Opt_block_validity, EXT4_MOUNT_BLOCK_VALIDITY, MOPT_SET},
+	{Opt_block_validity, EXT4_MOUNT_BLOCK_VALIDITY, MOPT_CLEAR},/*default clear the 'block validity' opts,modified by vivo<zhoudhide>*/
 	{Opt_noblock_validity, EXT4_MOUNT_BLOCK_VALIDITY, MOPT_CLEAR},
 	{Opt_dioread_nolock, EXT4_MOUNT_DIOREAD_NOLOCK,
 	 MOPT_EXT4_ONLY | MOPT_SET},
