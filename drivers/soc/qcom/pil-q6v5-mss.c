@@ -42,6 +42,10 @@
 #define MAX_SSR_REASON_LEN	81U
 #define STOP_ACK_TIMEOUT_MS	1000
 
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+char modem_reason[MAX_SSR_REASON_LEN] = {0};
+/*End leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
 
 static void log_modem_sfr(void)
@@ -62,6 +66,9 @@ static void log_modem_sfr(void)
 
 	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
 	pr_err("modem subsystem failure reason: %s.\n", reason);
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+	strlcpy(modem_reason, reason, min(size, MAX_SSR_REASON_LEN));
+/*End leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
 
 	smem_reason[0] = '\0';
 	wmb();
@@ -71,6 +78,9 @@ static void restart_modem(struct modem_data *drv)
 {
 	log_modem_sfr();
 	drv->ignore_errors = true;
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+       getmodem_normalreset(drv->subsys, modem_reason);
+/*End leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
 	subsystem_restart_dev(drv->subsys);
 }
 

@@ -162,6 +162,10 @@ struct subsys_device {
 	int count;
 	int id;
 	int restart_level;
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+	int modemnormal_reset;
+	int restart_level_bak;
+/*End leiweiqiang add modem L+C test not comeinto dump  2016-02-19*/
 	int crash_count;
 	struct subsys_soc_restart_order *restart_order;
 #ifdef CONFIG_DEBUG_FS
@@ -534,7 +538,13 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 	if (dev->desc->powerup(dev->desc) < 0) {
 		notify_each_subsys_device(&dev, 1, SUBSYS_POWERUP_FAILURE,
 								NULL);
-		panic("[%p]: Powerup error: %s!", current, name);
+        if(!strcmp(name, "wcnss"))//for wcnss
+        {
+            pr_warn("[%p]:Maybe wcnss something wrong: %s!Don't panic!!!\n", current, name);
+        }
+        else{
+            panic("[%p]: Powerup error: %s!", current, name);
+        }
 	}
 	enable_all_irqs(dev);
 
@@ -542,8 +552,14 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 	if (ret) {
 		notify_each_subsys_device(&dev, 1, SUBSYS_POWERUP_FAILURE,
 								NULL);
-		panic("[%p]: Timed out waiting for error ready: %s!",
-			current, name);
+		if(!strcmp(name, "wcnss") /*&& dev->restart_level != RESET_SOC*/)//Modified by huangxinyuan for system starting normal when wcnss soc broken.
+		{
+			pr_warn("[%p]: Timed out waiting for error ready: %s!,but do not panic!!!\n", current, name);
+			subsys_set_state(dev, SUBSYS_OFFLINE);
+		}
+		else
+			panic("[%p]: Timed out waiting for error ready: %s!",
+				current, name);
 	}
 	subsys_set_state(dev, SUBSYS_ONLINE);
 	subsys_set_crash_status(dev, false);
@@ -824,7 +840,14 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 			__pm_stay_awake(&dev->ssr_wlock);
 			queue_work(ssr_wq, &dev->work);
 		} else {
-			panic("Subsystem %s crashed during SSR!", name);
+			if(!strcmp(name, "wcnss") /*&& dev->restart_level != RESET_SOC*/)//Modified by huangxinyuan for system startup normal when wcnss soc broken.
+			{
+				pr_warn("[%p]: Maybe wcnss subsystem broken: %s!Don't panic!!!\n", current, name);
+			}
+			else
+            {
+				panic("Subsystem %s crashed during SSR!", name);
+			}
 		}
 	} else
 		WARN(dev->track.state == SUBSYS_OFFLINE,
@@ -841,6 +864,29 @@ static void device_restart_work_hdlr(struct work_struct *work)
 	panic("subsys-restart: Resetting the SoC - %s crashed.",
 							dev->desc->name);
 }
+
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+#define VIVO_MODEM_NORMAL_STRING ("THIS IS INTENTIONAL RESET, NO RAMDUMP EXPECTED")
+void getmodem_normalreset(struct subsys_device *dev, char *reason)
+{
+    if(NULL == dev)
+    {
+        pr_err("%s %d subsys_device is null\n", __func__, __LINE__);
+        return;
+    }
+
+    if(NULL != strstr(reason, VIVO_MODEM_NORMAL_STRING))
+    {
+        dev->modemnormal_reset = true;
+    }
+    else
+    {
+        dev->modemnormal_reset = false;
+    }
+    dev->restart_level_bak = dev->restart_level;
+    pr_err("%s %d modemnormal_reset = %d restart_level_bak = %d\n", __func__, __LINE__, dev->modemnormal_reset, dev->restart_level_bak);
+}
+/*End leiweiqiang add modem L+C test not comeinto dump  2016-02-19*/
 
 int subsystem_restart_dev(struct subsys_device *dev)
 {
@@ -867,6 +913,14 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		return -EBUSY;
 	}
 
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+        /*start modem normal reset don't into dump*/
+       if(true == dev->modemnormal_reset)
+       {
+            dev->restart_level = RESET_SUBSYS_COUPLED;
+       }
+/*End leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+
 	pr_info("Restart sequence requested for %s, restart_level = %s.\n",
 		name, restart_levels[dev->restart_level]);
 
@@ -875,6 +929,9 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		return 0;
 	}
 
+	if(!strcmp(name, "wcnss"))/*fixed by huangxinyuan for wcnss*/
+		dev->restart_level = RESET_SUBSYS_COUPLED;
+		
 	switch (dev->restart_level) {
 
 	case RESET_SUBSYS_COUPLED:
@@ -890,6 +947,14 @@ int subsystem_restart_dev(struct subsys_device *dev)
 	}
 	module_put(dev->owner);
 	put_device(&dev->dev);
+
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+        /*modem reset finish the config bakeup resume*/
+       if(true == dev->modemnormal_reset)
+       {
+            dev->restart_level = dev->restart_level_bak;
+       }
+/*End leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
 
 	return 0;
 }
@@ -1493,6 +1558,9 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 					&subsys->desc->sysmon_pid))
 			pr_debug("Reading sysmon-id for %s failed\n",
 								desc->name);
+
+		if (of_property_read_bool(ofnode, "qcom,subsystem-restart-level"))
+			subsys->restart_level = RESET_SUBSYS_COUPLED;
 	}
 
 	ret = sysmon_notifier_register(desc);
