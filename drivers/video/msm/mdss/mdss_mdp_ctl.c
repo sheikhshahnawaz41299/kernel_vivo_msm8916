@@ -3366,6 +3366,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	struct mdss_mdp_ctl *sctl = NULL;
 	int ret = 0;
 	bool is_bw_released;
+	bool need_update_perf = false;
 	int split_enable;
 
 	if (!ctl) {
@@ -3417,7 +3418,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		}
 
 		ATRACE_BEGIN("mixer_programming");
-		mdss_mdp_ctl_perf_update(ctl, 1);
+		//mdss_mdp_ctl_perf_update(ctl, 1);
+		need_update_perf = true;
 
 		mdss_mdp_mixer_setup(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 		mdss_mdp_mixer_setup(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
@@ -3475,6 +3477,11 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		commit_cb->commit_cb_fnc(
 			MDP_COMMIT_STAGE_SETUP_DONE,
 			commit_cb->data);
+	
+	if(need_update_perf == true){
+		mdss_mdp_ctl_perf_update(ctl, 1);
+	}
+    
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
 	ATRACE_END("frame_ready");
 

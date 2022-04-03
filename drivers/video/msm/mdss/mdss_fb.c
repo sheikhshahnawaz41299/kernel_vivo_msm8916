@@ -47,7 +47,7 @@
 #include <linux/sw_sync.h>
 #include <linux/file.h>
 #include <linux/kthread.h>
-
+#include <linux/input.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
 
@@ -68,6 +68,11 @@
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
 
+static struct msm_fb_data_type *g_mfd = NULL;////add for spotlight by lrz
+extern void mdss_dsi_panel_spotllight_en(int enable);
+extern int pre_bkg_level;
+extern unsigned int power_off_charging_mode;
+extern int bl_IC_diff_gpio;
 static u32 mdss_fb_pseudo_palette[16] = {
 	0x00000000, 0xffffffff, 0xffffffff, 0xffffffff,
 	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
@@ -76,6 +81,10 @@ static u32 mdss_fb_pseudo_palette[16] = {
 };
 
 static struct msm_mdp_interface *mdp_instance;
+
+/* add for silent reboot */
+extern int silent_reboot;
+/* must call this function from within mfd->bl_lock */
 
 static int mdss_fb_register(struct msm_fb_data_type *mfd);
 static int mdss_fb_open(struct fb_info *info, int user);
@@ -234,6 +243,7 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
 	int bl_lvl;
 
+	g_mfd = dev_get_drvdata(led_cdev->dev->parent); // add for spot backlight
 	if (value > mfd->panel_info->brightness_max)
 		value = mfd->panel_info->brightness_max;
 
@@ -252,6 +262,91 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 		mutex_unlock(&mfd->bl_lock);
 	}
 }
+
+////add for spot backlight start
+void mdss_fb_set_spotlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
+{
+	struct mdss_panel_data *pdata;
+	u32 temp = bkl_lvl;
+       	
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+
+	if ((pdata) && (pdata->set_backlight)) {
+		if (pre_bkg_level==0)
+			{
+			pr_err("%s:suspend status , don't need to set spotlight :%d\n",  __func__, temp);
+			}
+			else
+				{
+		pdata->set_backlight(pdata, temp);
+		pr_err("%s:spotlight sent to panel :%d\n",  __func__, temp);
+		}
+	}
+	
+}
+
+void mdss_set_spotlight_brightness(int value)
+{
+	int bl_lvl;
+	int spot_enable = 0;
+
+	if(g_mfd == NULL)
+		return;
+
+	if (value == 0)
+	{
+		value = g_mfd->bl_level_scaled;
+		spot_enable = 0;
+	}
+	else if (value > 255)
+	{
+		value = 255;
+		spot_enable = 1;
+	}
+	else if(value < 20)
+	{
+		value = 20;
+		spot_enable = 1;
+	}
+	else
+	{
+		spot_enable = 1;
+	}
+	
+	bl_lvl = value;
+	pr_err("%s: set value is:%d , and old level is %d\n",  __func__, bl_lvl, g_mfd->bl_level_scaled);
+	
+	pr_err("%s: bl_IC_diff_gpio= is %d, R1214 lrz 0329 1207\n",  __func__, bl_IC_diff_gpio);	
+	if (spot_enable) {
+	mutex_lock(&g_mfd->bl_lock);
+	mdss_fb_set_spotlight(g_mfd, bl_lvl);
+	mdss_dsi_panel_spotllight_en(0);////opposed to LV52207
+	mutex_unlock(&g_mfd->bl_lock);
+	} else {
+	mutex_lock(&g_mfd->bl_lock);
+	mdss_dsi_panel_spotllight_en(1);////opposed to LV52207
+	mdss_fb_set_spotlight(g_mfd, bl_lvl);
+	mutex_unlock(&g_mfd->bl_lock);		
+	}
+}
+
+static void mdss_fb_set_spotlight_brightness(struct led_classdev *led_cdev,
+				      enum led_brightness value)
+{
+	mdss_set_spotlight_brightness(value);
+
+}
+
+
+
+static struct led_classdev spotlight_led = {
+	.name           = "spotlight",
+	.brightness     = 150,
+	.brightness_set = mdss_fb_set_spotlight_brightness,
+	.max_brightness = 255,
+};
+
+////////add for spot backlight start
 
 static struct led_classdev backlight_led = {
 	.name           = "lcd-backlight",
@@ -796,7 +891,11 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		if (led_classdev_register(&pdev->dev, &backlight_led))
 			pr_err("led_classdev_register failed\n");
 		else
+		{
 			lcd_backlight_registered = 1;
+		}
+		if (led_classdev_register(&pdev->dev, &spotlight_led))
+			pr_err("spotlight led_classdev_register failed\n");
 	}
 
 	mdss_fb_create_sysfs(mfd);
@@ -1100,7 +1199,9 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		mfd->unset_bl_level = 0;
 		return;
 	}
-
+       if(power_off_charging_mode)
+	   	mfd->bl_updated = 1;
+	
 	if ((((mdss_fb_is_power_off(mfd) && mfd->dcm_state != DCM_ENTER)
 		|| !mfd->bl_updated) && !IS_CALIB_MODE_BL(mfd)) ||
 		mfd->panel_info->cont_splash_enabled) {
@@ -1127,12 +1228,14 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		 * backlight has been set to the scaled value.
 		 */
 		if (mfd->bl_level_scaled == temp) {
+			if (mfd->bl_level_scaled == 0 && power_off_charging_mode == 1)
+				pdata->set_backlight(pdata, temp);
 			mfd->bl_level = bkl_lvl;
 		} else {
 			pr_debug("backlight sent to panel :%d\n", temp);
 			pdata->set_backlight(pdata, temp);
 			mfd->bl_level = bkl_lvl;
-			mfd->bl_level_scaled = temp;
+			mfd->bl_level_scaled =  bkl_lvl;
 			bl_notify_needed = true;
 		}
 		if (bl_notify_needed)
@@ -1239,7 +1342,7 @@ static int mdss_fb_unblank_sub(struct msm_fb_data_type *mfd)
 	if (mdss_panel_is_power_off(cur_power_state)) {
 		mutex_lock(&mfd->bl_lock);
 		if (!mfd->bl_updated) {
-			mfd->bl_updated = 1;
+			//mfd->bl_updated = 1;
 			/*
 			 * If in AD calibration mode then frameworks would not
 			 * be allowed to update backlight hence post unblank
@@ -1263,8 +1366,9 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int ret = 0;
+	int bl_level = 0;
 	int cur_power_state, req_power_state = MDSS_PANEL_POWER_OFF;
-
+        ktime_t start_time,end_time;
 	if (!mfd || !op_enable)
 		return -EPERM;
 
@@ -1293,8 +1397,11 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
+		start_time= ktime_get();
 		pr_debug("unblank called. cur pwr state=%d\n", cur_power_state);
 		ret = mdss_fb_unblank_sub(mfd);
+		end_time= ktime_get();
+		pr_err("unblankcalled. Delay: %llu\n", (ktime_to_ms(end_time) -ktime_to_ms(start_time)));
 		break;
 
 	case FB_BLANK_VSYNC_SUSPEND:
@@ -1337,8 +1444,10 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 				if (mfd->disp_thread)
 					mdss_fb_stop_disp_thread(mfd);
 				mutex_lock(&mfd->bl_lock);
+				bl_level = mfd->bl_level;
 				mdss_fb_set_backlight(mfd, 0);
 				mfd->bl_updated = 0;
+				mfd->unset_bl_level = bl_level;
 				mutex_unlock(&mfd->bl_lock);
 			}
 			mfd->panel_power_state = req_power_state;
@@ -2077,8 +2186,9 @@ static int mdss_fb_open(struct fb_info *info, int user)
 	struct task_struct *task = current->group_leader;
 
 	if (mfd->shutdown_pending) {
-		pr_err("Shutdown pending. Aborting operation. Request from pid:%d name=%s\n",
-				pid, task->comm);
+ 		pr_err_once("Shutdown pending. Aborting operation. Request from pid:%d name=%s\n", 
+			 pid, task->comm); 
+		 sysfs_notify(&mfd->fbi->dev->kobj, NULL, "show_blank_event"); 
 		return -EPERM;
 	}
 
@@ -2156,8 +2266,8 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 	struct task_struct *task = current->group_leader;
 
 	if (!mfd->ref_cnt) {
-		pr_info("try to close unopened fb %d! from %s\n", mfd->index,
-			task->comm);
+		pr_info("try to close unopened fb %d! from pid:%d name:%s\n", 
+			mfd->index, pid, task->comm);
 		return -EINVAL;
 	}
 
@@ -2167,7 +2277,9 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		pr_warn("fb%d ioctl could not finish. waited 1 sec.\n",
 			mfd->index);
 
-	mdss_fb_pan_idle(mfd);
+	/* wait only for the last release */
+	if (release_all || (mfd->ref_cnt == 1))
+		mdss_fb_pan_idle(mfd);
 
 	pr_debug("release_all = %s\n", release_all ? "true" : "false");
 
@@ -2671,8 +2783,11 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 			pr_err("pan display failed %x on fb%d\n", ret,
 					mfd->index);
 	}
-	if (!ret)
-		mdss_fb_update_backlight(mfd);
+	/*if (!ret)
+		mdss_fb_update_backlight(mfd);*//////lrz modify for PD1523LG4 BUG B160301-778 alarm reboot abnormal
+	 if (!ret && !mfd->panel_info->cont_splash_enabled){
+	 	mdss_fb_update_backlight(mfd);
+	 	}
 
 	if (IS_ERR_VALUE(ret) || !sync_pt_data->flushed) {
 		mdss_fb_release_kickoff(mfd);
