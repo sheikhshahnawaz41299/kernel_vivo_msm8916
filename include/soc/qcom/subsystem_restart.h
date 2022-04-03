@@ -89,7 +89,9 @@ struct notif_data {
 };
 
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)
-
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+extern void getmodem_normalreset(struct subsys_device *dev, char *reason);
+/*End leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
 extern int subsys_get_restart_level(struct subsys_device *dev);
 extern int subsystem_restart_dev(struct subsys_device *dev);
 extern int subsystem_restart(const char *name);
@@ -107,6 +109,12 @@ extern bool subsys_get_crash_status(struct subsys_device *dev);
 void notify_proxy_vote(struct device *device);
 void notify_proxy_unvote(struct device *device);
 #else
+/*Begin leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
+static inline void getmodem_normalreset(struct subsys_device *dev, char *reason)
+{
+    return;
+}
+/*End leiweiqiang add modem L+C test not comeinto dump 2016-02-19*/
 
 static inline int subsys_get_restart_level(struct subsys_device *dev)
 {
