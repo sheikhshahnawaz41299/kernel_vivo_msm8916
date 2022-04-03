@@ -3740,6 +3740,24 @@ static inline char *fmt_multiple_name(struct device *dev,
 	return kstrdup(dai_drv->name, GFP_KERNEL);
 }
 
+/* Add for vivo soc, by ChenJinQuan. */
+struct snd_soc_dai *snd_soc_get_dai(struct snd_soc_codec *codec,
+   const char *name)
+{
+   struct snd_soc_dai *dai;
+
+   list_for_each_entry(dai, &dai_list, list) {
+       if (codec->dev == dai->dev &&
+           !strcmp(dai->name,
+               name)) {
+           dev_dbg(dai->dev, "snd_soc_get_dai %s done\n", dai->name);
+           return dai;
+       }
+   }
+
+   return NULL;
+}
+
 /**
  * snd_soc_register_dai - Register a DAI with the ASoC core
  *
