@@ -57,7 +57,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 	static char *health_text[] = {
 		"Unknown", "Good", "Overheat", "Warm", "Dead", "Over voltage",
 		"Unspecified failure", "Cold", "Cool", "Watchdog timer expire",
-		"Safety timer expire"
+		"Safety timer expire", "Dual-engine"/* @vivo add for Dual-engine */
 	};
 	static char *technology_text[] = {
 		"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
@@ -207,6 +207,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(system_temp_level),
 	POWER_SUPPLY_ATTR(resistance),
 	POWER_SUPPLY_ATTR(resistance_capacitive),
+	POWER_SUPPLY_ATTR(current_ac_avg_now),
 	POWER_SUPPLY_ATTR(resistance_id),
 	POWER_SUPPLY_ATTR(resistance_now),
 	/* Local extensions */
@@ -214,6 +215,13 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(usb_otg),
 	POWER_SUPPLY_ATTR(charge_enabled),
 	POWER_SUPPLY_ATTR(flash_current_max),
+	POWER_SUPPLY_ATTR(check_fast_charge),
+	POWER_SUPPLY_ATTR(enable_fast_charge),
+	POWER_SUPPLY_ATTR(calling_state),
+	POWER_SUPPLY_ATTR(WeakCharger),
+	POWER_SUPPLY_ATTR(iic_state),
+	POWER_SUPPLY_ATTR(fixed_temp),
+	POWER_SUPPLY_ATTR(factory_mode_state),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
