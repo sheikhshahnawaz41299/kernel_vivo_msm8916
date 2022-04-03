@@ -146,6 +146,7 @@ struct wcd_mbhc_cb {
 	void (*set_auto_zeroing) (struct snd_soc_codec *, bool);
 	struct firmware_cal * (*get_hwdep_fw_cal)(struct snd_soc_codec *,
 			enum wcd_cal_type);
+	void (*set_cap_mode)(struct snd_soc_codec *, bool, bool);
 };
 
 struct wcd_mbhc {
@@ -161,6 +162,7 @@ struct wcd_mbhc {
 
 	wait_queue_head_t wait_btn_press;
 	bool is_btn_press;
+	bool is_hs_inserted;
 	u8 current_plug;
 	bool in_swch_irq_handler;
 	bool hphl_swh; /*track HPHL switch NC / NO */
@@ -198,6 +200,9 @@ struct wcd_mbhc {
 	/* Work to correct accessory type */
 	struct work_struct correct_plug_swch;
 	struct notifier_block nblock;
+#if 1//def BBK_HEADSET_GPIO
+	struct dentry *at_file_node;
+#endif
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \

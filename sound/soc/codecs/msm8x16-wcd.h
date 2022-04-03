@@ -50,6 +50,8 @@
 #define NUM_DECIMATORS	2
 #define MSM89XX_VDD_SPKDRV_NAME "cdc-vdd-spkdrv"
 
+#define BBK_I2S_HIFI
+
 extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reset_reg_defaults[MSM8X16_WCD_CACHE_SIZE];
@@ -163,6 +165,8 @@ struct msm8916_asoc_mach_data {
 	int spk_ext_pa_gpio;
 	int mclk_freq;
 	int lb_mode;
+	u8 micbias1_cap_mode;
+	u8 micbias2_cap_mode;
 	atomic_t mclk_rsc_ref;
 	atomic_t mclk_enabled;
 	struct mutex cdc_mclk_mutex;
@@ -171,6 +175,9 @@ struct msm8916_asoc_mach_data {
 	void __iomem *vaddr_gpio_mux_spkr_ctl;
 	void __iomem *vaddr_gpio_mux_mic_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
+#ifdef BBK_I2S_HIFI
+	struct msm_mi2s_ctrl *quat_mi2s_ctrl;
+#endif
 };
 
 struct msm8x16_wcd_pdata {
@@ -261,3 +268,22 @@ extern void msm8x16_wcd_spk_ext_pa_cb(
 		int enable), struct snd_soc_codec *codec);
 #endif
 
+/* YDA145 */
+#ifndef MSM8X16_YDA_H
+#define MSM8X16_YDA_H
+
+struct yda_data{
+	unsigned int ctrl_a_gpio;
+	unsigned int ctrl_b_gpio;
+};
+
+struct yda_stuc{
+	int speaker_set_on;
+	int num_of_pa;
+	struct yda_data data[2];
+};
+
+extern struct yda_stuc *vivo_yda_priv;
+
+#endif
+/* end */

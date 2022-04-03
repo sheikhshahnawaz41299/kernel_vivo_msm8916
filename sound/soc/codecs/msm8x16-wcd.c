@@ -157,6 +157,15 @@ struct hpf_work {
 	struct delayed_work dwork;
 };
 
+/* YDA145 */
+enum {
+	YDA145_OFF = 0,
+	YDA145_ON,
+};
+
+struct yda_stuc *vivo_yda_priv;
+/* end */
+
 static struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 
 static char on_demand_supply_name[][MAX_ON_DEMAND_SUPPLY_NAME_LENGTH] = {
@@ -1363,6 +1372,23 @@ static int msm8x16_wcd_spk_boost_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm8x16_wcd_put_micbias_capless(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	if (ucontrol->value.integer.value[0]) {
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0x04, 0x04);
+	} else {
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0x04, 0x00);
+	}
+
+	return snd_soc_put_volsw(kcontrol, ucontrol);
+}
+
 static int msm8x16_wcd_ext_spk_boost_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1599,6 +1625,54 @@ static int msm8x16_wcd_put_iir_band_audio_mixer(
 	return 0;
 }
 
+/* YDA 145 */
+static int wcd_spk_boost_yda145_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct yda_stuc *yda145 = vivo_yda_priv;
+
+	if ( yda145 == NULL)
+	{
+		return 0;
+	}
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+
+		yda145->speaker_set_on = YDA145_OFF;
+		pr_info("%s:  yda145 set Off \n",__func__ );
+		break;
+	case 1:
+
+		yda145->speaker_set_on = YDA145_ON;
+		pr_info("%s: yda145 set On \n",__func__ );
+
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+static int wcd_spk_boost_yda145_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct yda_stuc *yda145 = vivo_yda_priv;
+	
+	if ( yda145 == NULL)
+	{
+		pr_info("%s: yda_stuc is NULL \n", __func__);
+		return 0;
+	}
+
+	ucontrol->value.integer.value[0] = yda145->speaker_set_on;
+	
+	pr_info("%s: yda145 set %s \n", __func__, 
+			yda145->speaker_set_on?"On":"Off");
+
+	return 0;
+}
+/* end */
+
 static const char * const msm8x16_wcd_loopback_mode_ctrl_text[] = {
 		"DISABLE", "ENABLE"};
 static const struct soc_enum msm8x16_wcd_loopback_mode_ctl_enum[] = {
@@ -1634,6 +1708,14 @@ static const char * const msm8x16_wcd_ext_spk_boost_ctrl_text[] = {
 static const struct soc_enum msm8x16_wcd_ext_spk_boost_ctl_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_ext_spk_boost_ctrl_text),
 };
+
+/* YDA 145 */
+static const char * const msm8x16_wcd_yda145_boost_ctrl_text[] = {
+		"DISABLE", "ENABLE"};
+static const struct soc_enum msm8x16_wcd_yda145_boost_ctrl_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_yda145_boost_ctrl_text),
+};
+/* end */
 
 /*cut of frequency for high pass filter*/
 static const char * const cf_text[] = {
@@ -1675,6 +1757,11 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 	SOC_ENUM_EXT("LOOPBACK Mode", msm8x16_wcd_loopback_mode_ctl_enum[0],
 		msm8x16_wcd_loopback_mode_get, msm8x16_wcd_loopback_mode_put),
 
+	/* YDA 145 */
+	SOC_ENUM_EXT("Speaker Yda145", msm8x16_wcd_yda145_boost_ctrl_enum[0],
+		wcd_spk_boost_yda145_get, wcd_spk_boost_yda145_set),
+	/* end */
+
 	SOC_SINGLE_TLV("ADC1 Volume", MSM8X16_WCD_A_ANALOG_TX_1_EN, 3,
 					8, 0, analog_gain),
 	SOC_SINGLE_TLV("ADC2 Volume", MSM8X16_WCD_A_ANALOG_TX_2_EN, 3,
@@ -1711,12 +1798,13 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 	SOC_SINGLE_SX_TLV("IIR1 INP4 Volume",
 			  MSM8X16_WCD_A_CDC_IIR1_GAIN_B4_CTL,
 			0,  -84,	40, digital_gain),
+	SOC_SINGLE_EXT("MICBIAS CAPLESS Switch",
+		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 6, 1, 0,
+		   snd_soc_get_volsw,
+		   msm8x16_wcd_put_micbias_capless),
 	SOC_SINGLE_SX_TLV("IIR2 INP1 Volume",
 			  MSM8X16_WCD_A_CDC_IIR2_GAIN_B1_CTL,
 			0,  -84, 40, digital_gain),
-
-	SOC_SINGLE("MICBIAS CAPLESS Switch",
-		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 6, 1, 0),
 
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
 	SOC_ENUM("TX2 HPF cut off", cf_dec2_enum),
@@ -2495,6 +2583,7 @@ static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
 	return ret;
 }
 
+extern int micbias2_status;
 static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -2504,6 +2593,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	char *internal2_text = "Internal2";
 	char *internal3_text = "Internal3";
 	char *external2_text = "External2";
+	char *external_text = "External";
 
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 	switch (w->reg) {
@@ -2528,6 +2618,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x2);
 		}
+		if (!strnstr(w->name, external_text, 30))
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0x05, 0x04);
 
@@ -2540,11 +2631,13 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, micb_int_reg, 0x08, 0x08);
 			msm8x16_notifier_call(codec,
 					WCD_EVENT_PRE_MICBIAS_2_ON);
+			micbias2_status = 1;
 		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x01, 0x01);
 		} else if (strnstr(w->name, external2_text, 30)) {
 			msm8x16_notifier_call(codec,
 					WCD_EVENT_PRE_MICBIAS_2_ON);
+			micbias2_status = 1;
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -2553,6 +2646,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		} else if (strnstr(w->name, internal2_text, 30)) {
 			msm8x16_notifier_call(codec,
 					WCD_EVENT_PRE_MICBIAS_2_OFF);
+			micbias2_status = 0;
 		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x0);
 		} else if (strnstr(w->name, external2_text, 30)) {
@@ -2562,6 +2656,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			 */
 			msm8x16_notifier_call(codec,
 					WCD_EVENT_PRE_MICBIAS_2_OFF);
+			micbias2_status = 0;
 			break;
 		}
 		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
@@ -3028,14 +3123,14 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 
 	case SND_SOC_DAPM_POST_PMU:
-		usleep_range(4000, 4100);
-		if (w->shift == 5)
+		usleep_range(7000, 7100);
+		if (w->shift == 5) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x00);
-		else if (w->shift == 4)
+		} else if (w->shift == 4) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0x01, 0x00);
-		usleep_range(10000, 10100);
+		}
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
@@ -3444,7 +3539,11 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 	u16 tx_vol_ctl_reg = 0;
 	u8 decimator = 0, i;
 	struct msm8x16_wcd_priv *msm8x16_wcd;
-
+	/* Yda145 */
+	struct yda_stuc *yda145 = vivo_yda_priv;
+	int dspeaker;
+	/* end */
+		
 	pr_debug("%s: Digital Mute val = %d\n", __func__, mute);
 
 	if (!dai || !dai->codec) {
@@ -3457,7 +3556,7 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 	if (dai->id != AIF1_CAP) {
 		dev_dbg(codec->dev, "%s: Not capture use case skip\n",
 		__func__);
-		return 0;
+		goto yda145_exit;
 	}
 
 	mute = (mute) ? 1 : 0;
@@ -3467,7 +3566,7 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 		 * that was arrived by checking the pop level
 		 * to be inaudible
 		 */
-		usleep_range(15000, 15010);
+		usleep_range(50000, 50100);
 	}
 
 	for (i = 0; i < NUM_DECIMATORS; i++) {
@@ -3482,6 +3581,45 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 		}
 		decimator = 0;
 	}
+	return 0;
+	/* Yda145 */
+yda145_exit:
+
+	if ( yda145 == NULL)
+		return 0;
+
+	pr_info("%s: yda145 enter\n", __func__);
+
+	dspeaker = !(yda145->num_of_pa - 2);
+
+	if (mute)
+	{
+		gpio_direction_output(yda145->data[0].ctrl_a_gpio,0);
+		gpio_direction_output(yda145->data[0].ctrl_b_gpio,0);
+		if (dspeaker){
+			gpio_direction_output(yda145->data[1].ctrl_a_gpio,0);
+			gpio_direction_output(yda145->data[1].ctrl_b_gpio,0);
+		}
+		pr_info("%s: yda145 power off\n", __func__);
+
+	} else {
+	
+		if (yda145->speaker_set_on == YDA145_OFF)
+			return 0;
+		
+		gpio_direction_output(yda145->data[0].ctrl_a_gpio,1);
+		gpio_direction_output(yda145->data[0].ctrl_b_gpio,1);
+		if (dspeaker)
+		{
+			gpio_direction_output(yda145->data[1].ctrl_a_gpio,1);
+			gpio_direction_output(yda145->data[1].ctrl_b_gpio,1);
+		}
+		msleep(40);
+
+		pr_info("%s: yda145 power on\n", __func__);
+
+	}
+	/*  end  */
 	return 0;
 }
 
@@ -3825,8 +3963,10 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 	SND_SOC_DAPM_VIRT_MUX("ADC2 MUX", SND_SOC_NOPM, 0, 0,
 		&tx_adc2_mux),
 
-	SND_SOC_DAPM_MICBIAS("MIC BIAS External",
-		MSM8X16_WCD_A_ANALOG_MICB_1_EN, 7, 0),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS External",
+		MSM8X16_WCD_A_ANALOG_MICB_1_EN, 7, 0,
+		msm8x16_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS External2",
 		MSM8X16_WCD_A_ANALOG_MICB_2_EN, 7, 0,
@@ -3950,7 +4090,7 @@ static const struct msm8x16_wcd_reg_mask_val
 	/* Initialize current threshold to 350MA
 	 * number of wait and run cycles to 4096
 	 */
-	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_CTL, 0xFF, 0x12},
+	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_CTL, 0xFF, 0x1f},/* Change 0xD1 to 0xDE. Change OCP detect times, and change threshold to 280 from 185MA*/
 	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 };
 
@@ -4275,6 +4415,11 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		registered_codec = NULL;
 		return -ENOMEM;
 	}
+	/* Enable master bias for external codec capture,
+	    added by ChenJinQuan */
+	snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
+				0x30, 0x30);
 	return 0;
 }
 
@@ -4540,6 +4685,86 @@ static int msm8x16_wcd_device_init(struct msm8x16_wcd *msm8x16)
 	return 0;
 }
 
+/*  YDA 145  */
+static int msm8x16_wcd_get_gpio(struct device_node	*of_node,
+			const char *prop)
+{
+	unsigned int gpio = -1;
+	int ret = 0;
+
+	gpio = of_get_named_gpio(of_node, prop, 0);
+	pr_info("%s: yda145 gpio %d \n", __func__, gpio);
+	ret=gpio_request(gpio, prop);
+	if (ret < 0) {
+		gpio = -1;
+		pr_err(" %s gpio_request fail\n", prop);
+	}
+    ret = gpio_direction_output(gpio, 0);
+	if (ret < 0) {
+		pr_err("set %s gpio output fail\n", prop);
+	}
+	return gpio;
+}
+
+static void msm8x16_wcd_get_yda145(struct device_node	*of_node)
+{
+	struct yda_stuc *yda_priv = NULL;
+	struct yda_data yda_temp;
+	int ret,num;
+	
+	ret = of_property_read_u32(of_node, "vivo,yda145-num", &num);
+	if (ret)
+		goto exit;
+	
+	yda_priv = kzalloc(sizeof(struct yda_stuc), GFP_KERNEL);
+	if (yda_priv == NULL) {
+		pr_err("%s: error, allocation failed\n", __func__);
+		goto exit;
+	}
+
+	switch( num){
+	case 2:
+		yda_temp.ctrl_a_gpio = msm8x16_wcd_get_gpio(of_node, 
+				"vivo,yda145-ctrl-ra-gpio");
+		yda_temp.ctrl_b_gpio = msm8x16_wcd_get_gpio(of_node, 
+				"vivo,yda145-ctrl-rb-gpio");
+		if (yda_temp.ctrl_a_gpio <0||yda_temp.ctrl_a_gpio <0)
+		{
+			pr_err("%s:get yda145 r_channel error\n",__func__);
+			goto err_exit;
+		}else
+			yda_priv->data[1] = yda_temp;
+		/* donot break */
+	case 1:
+		yda_temp.ctrl_a_gpio = msm8x16_wcd_get_gpio(of_node, 
+				"vivo,yda145-ctrl-la-gpio");
+		yda_temp.ctrl_b_gpio = msm8x16_wcd_get_gpio(of_node, 
+				"vivo,yda145-ctrl-lb-gpio");
+		if (yda_temp.ctrl_a_gpio <0||yda_temp.ctrl_a_gpio <0)
+		{
+			pr_err("%s:get yda145 l_channel error\n",__func__);
+			goto err_exit;
+		}else
+			yda_priv->data[0] = yda_temp;
+		break;
+	default:
+		goto err_exit;
+	}
+	
+	yda_priv->num_of_pa = num;
+	yda_priv->speaker_set_on = YDA145_OFF;
+	pr_info("%s: vivo,yda145 gpio request successful \n", __func__);
+	pr_info("%s: vivo,yda145 %d speaker(s) \n", __func__, num);
+	goto exit;
+	
+err_exit:
+	kfree(yda_priv);
+	yda_priv = NULL;
+exit:
+	vivo_yda_priv = yda_priv;
+}
+/* end */
+
 static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 {
 	int ret = 0;
@@ -4602,6 +4827,7 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 			__func__);
 		pdata = msm8x16_wcd_populate_dt_pdata(&spmi->dev);
 		spmi->dev.platform_data = pdata;
+		msm8x16_wcd_get_yda145(spmi->dev.of_node); /* YDA 145 */
 	} else {
 		dev_dbg(&spmi->dev, "%s:Platform data from board file\n",
 			__func__);
