@@ -475,7 +475,15 @@ struct input_keymap_entry {
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
+#ifdef CONFIG_MACH_VIVO
 
+#define KEY_WAKEUP_SWIPE  249
+#define KEY_TS_LARGE_SUPPRESSION  250
+#define KEY_BAR_SWIPE  251  /*TS add for down_bar swipe */
+#define KEY_CUSTOM_GESTURE  252		/*TS add for custom gesture key */
+#define KEY_FINGER_SWIPE		253	/*TS add for fingerswipe key */
+#define KEY_FINGERPRINT_WAKE		254	/*GongYulong add for fingerprint wakeup key */
+#endif
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100
