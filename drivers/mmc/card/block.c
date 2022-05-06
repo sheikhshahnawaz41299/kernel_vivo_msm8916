@@ -62,7 +62,11 @@ MODULE_ALIAS("mmc:block");
 #define INAND_CMD38_ARG_SECERASE 0x80
 #define INAND_CMD38_ARG_SECTRIM1 0x81
 #define INAND_CMD38_ARG_SECTRIM2 0x88
+#ifdef CONFIG_MACH_VIVO
+#define MMC_BLK_TIMEOUT_MS  (8 * 1000)        /* 8 sec timeout */
+#else
 #define MMC_BLK_TIMEOUT_MS  (30 * 1000)        /* 30 sec timeout */
+#endif
 
 #define mmc_req_rel_wr(req)	(((req->cmd_flags & REQ_FUA) || \
 				  (req->cmd_flags & REQ_META)) && \

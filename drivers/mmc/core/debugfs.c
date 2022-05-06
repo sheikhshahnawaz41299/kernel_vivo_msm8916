@@ -246,6 +246,36 @@ out:
 
 DEFINE_SIMPLE_ATTRIBUTE(mmc_max_clock_fops, mmc_max_clock_get,
 		mmc_max_clock_set, "%llu\n");
+#ifdef CONFIG_MACH_VIVO
+static int mmc_speed_class_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+	if (host->card == NULL) {
+			*val = 256;
+		}else{
+			*val = host->speed_class;
+		}
+	return 0;
+}
+
+static int mmc_speed_class_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	/* We need this check due to input value is u64 */
+	if (val < 0)
+		return -EINVAL;
+
+	mmc_claim_host(host);
+	host->speed_class = val;
+	mmc_release_host(host);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_speed_class_fops, mmc_speed_class_get, mmc_speed_class_set,
+	"%llu\n");
+#endif
 
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
@@ -271,6 +301,12 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 
 	if (!debugfs_create_file("max_clock", S_IRUSR | S_IWUSR, root, host,
 		&mmc_max_clock_fops))
+#ifdef CONFIG_MACH_VIVO
+		goto err_node;
+
+	if (!debugfs_create_file("speed_class", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH , root, host,
+			&mmc_speed_class_fops))
+#endif
 		goto err_node;
 
 #ifdef CONFIG_MMC_CLKGATE

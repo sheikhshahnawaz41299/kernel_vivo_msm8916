@@ -232,6 +232,10 @@ static int mmc_read_ssr(struct mmc_card *card)
 	unsigned int au, es, et, eo;
 	int err, i;
 	u32 *ssr;
+#ifdef CONFIG_MACH_VIVO
+	unsigned int speed_class = 0;
+	struct mmc_host * host = card->host;
+#endif
 
 	if (!(card->csd.cmdclass & CCC_APP_SPEC)) {
 		pr_warning("%s: card lacks mandatory SD Status "
@@ -274,6 +278,11 @@ static int mmc_read_ssr(struct mmc_card *card)
 				   mmc_hostname(card->host));
 		}
 	}
+#ifdef CONFIG_MACH_VIVO
+	speed_class = UNSTUFF_BITS(ssr, 440 - 384, 8);
+	printk("%s: Speed class: %0x\n",mmc_hostname(host),speed_class);
+	host->speed_class = speed_class;
+#endif
 out:
 	kfree(ssr);
 	return err;
@@ -1021,6 +1030,9 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
+#ifdef CONFIG_MACH_VIVO
+	printk("%s === %s === \n",mmc_hostname(host),__func__);
+#endif
 
 	err = mmc_sd_get_cid(host, ocr, cid, &rocr);
 	if (err)
@@ -1142,6 +1154,74 @@ static int mmc_sd_alive(struct mmc_host *host)
 {
 	return mmc_send_status(host->card, NULL);
 }
+#ifdef CONFIG_MACH_VIVO
+/*
+ *  Re-dectect when card unexcepted removed add by wanglanbin
+ */
+static int mmc_sd_re_detect(struct mmc_host *host)
+{
+       int err;
+       u32     ocr;
+
+       host->f_init = host->f_min;
+       mmc_power_up(host);
+
+       mmc_go_idle(host);
+
+       mmc_send_if_cond(host, host->ocr_avail);
+
+       err = mmc_send_app_op_cond(host, 0, &ocr);
+       if(err)
+               return err;
+
+       /*
+        * We need to get OCR a different way for SPI.
+        */
+       if (mmc_host_is_spi(host)) {
+               mmc_go_idle(host);
+
+               err = mmc_spi_read_ocr(host, 0, &ocr);
+               if (err)
+                       return err;
+       }
+
+       /*
+        * Sanity check the voltages that the card claims to
+        * support.
+        */
+       if (ocr & 0x7F) {
+               pr_warning("%s: card claims to support voltages "
+                      "below the defined range. These will be ignored.\n",
+                      mmc_hostname(host));
+               ocr &= ~0x7F;
+       }
+
+       if ((ocr & MMC_VDD_165_195) &&
+           !(host->ocr_avail_sd & MMC_VDD_165_195)) {
+               pr_warning("%s: SD card claims to support the "
+                      "incompletely defined 'low voltage range'. This "
+                      "will be ignored.\n", mmc_hostname(host));
+               ocr &= ~MMC_VDD_165_195;
+       }
+
+       host->ocr = mmc_select_voltage(host, ocr);
+
+       /*
+        * Can we support the voltage(s) of the card(s)?
+        */
+       if (!host->ocr) {
+               err = -EINVAL;
+               return err;
+       }
+
+       err = mmc_sd_init_card(host, host->ocr, host->card);
+       if(err)
+               printk(KERN_ERR "%s : re-detect card failed !\n",mmc_hostname(host));
+
+       return err;
+}
+/* end */
+#endif
 
 /*
  * Card detection callback from host.
@@ -1155,6 +1235,9 @@ static void mmc_sd_detect(struct mmc_host *host)
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
+#ifdef CONFIG_MACH_VIVO
+	printk("%s === %s === \n",mmc_hostname(host),__func__);
+#endif
 
 	mmc_rpm_hold(host, &host->card->dev);
 	mmc_claim_host(host);
@@ -1175,6 +1258,26 @@ static void mmc_sd_detect(struct mmc_host *host)
 	if (!retries) {
 		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
 		       __func__, mmc_hostname(host), err);
+#ifdef CONFIG_MACH_VIVO
+		retries = 5;
+		   /*add by liuruyi*/
+		while(err && retries) {
+				printk(KERN_ERR "%s : give a chance to re-detect card ! err(%d) retry(%d)\n",mmc_hostname(host),err,retries);
+				mmc_power_off(host);
+				msleep(200);
+				err = mmc_sd_re_detect(host);
+				if(err) {
+					retries--;
+					continue;
+				}
+				break;
+		}
+		if(!retries) {
+			printk(KERN_ERR "%s : give 5 chance to re-detect card failed! err(%d) \n",mmc_hostname(host),err);
+			mmc_card_set_removed(host->card);
+		}
+		/*end*/
+#endif
 		err = _mmc_detect_card_removed(host);
 	}
 #else
@@ -1197,6 +1300,9 @@ static void mmc_sd_detect(struct mmc_host *host)
 		mmc_detach_bus(host);
 		mmc_power_off(host);
 		mmc_release_host(host);
+#ifdef CONFIG_MACH_VIVO
+		msleep(1000);
+#endif
 	}
 }
 
@@ -1332,6 +1438,9 @@ int mmc_attach_sd(struct mmc_host *host)
 	u32 ocr;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	int retries;
+#endif
+#ifdef CONFIG_MACH_VIVO
+	printk("%s === %s === \n",mmc_hostname(host),__func__);
 #endif
 
 	BUG_ON(!host);

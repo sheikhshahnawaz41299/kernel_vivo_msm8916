@@ -312,6 +312,9 @@ struct sdhci_msm_pltfm_data {
 	u32 *cpu_dma_latency_us;
 	unsigned int cpu_dma_latency_tbl_sz;
 	int status_gpio; /* card detection GPIO that is configured as IRQ */
+#ifdef CONFIG_MACH_VIVO
+    int vtf_gpio;
+#endif
 	struct sdhci_msm_bus_voting_data *voting_data;
 	u32 *sup_clk_table;
 	unsigned char sup_clk_cnt;
@@ -1677,7 +1680,10 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 		dev_err(dev, "failed to allocate memory for platform data\n");
 		goto out;
 	}
+#ifdef CONFIG_MACH_VIVO
 
+    pdata->vtf_gpio = of_get_named_gpio_flags(np, "cd-gpios-vtf", 0, &flags);
+#endif
 	pdata->status_gpio = of_get_named_gpio_flags(np, "cd-gpios", 0, &flags);
 	if (gpio_is_valid(pdata->status_gpio) & !(flags & OF_GPIO_ACTIVE_LOW))
 		pdata->caps2 |= MMC_CAP2_CD_ACTIVE_HIGH;
@@ -2159,18 +2165,33 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_pltfm_data *pdata,
 			 __func__);
 		goto out;
 	}
+#ifndef CONFIG_MACH_VIVO
 
 	vreg_table[0] = curr_slot->vdd_data;
 	vreg_table[1] = curr_slot->vdd_io_data;
+#else
+	vreg_table[1] = curr_slot->vdd_data;
+	vreg_table[0] = curr_slot->vdd_io_data;
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
 			if (enable)
 				ret = sdhci_msm_vreg_enable(vreg_table[i]);
+#ifndef CONFIG_MACH_VIVO
 			else
 				ret = sdhci_msm_vreg_disable(vreg_table[i]);
 			if (ret)
 				goto out;
+#else
+			else
+			{
+				ret = sdhci_msm_vreg_disable(vreg_table[i]);
+				msleep(5);
+			}
+			if (ret)
+				goto out;
+#endif
 		}
 	}
 out:
@@ -2191,7 +2212,10 @@ static int sdhci_msm_vreg_reset(struct sdhci_msm_pltfm_data *pdata)
 	ret = sdhci_msm_setup_vreg(pdata, 0, true);
 	return ret;
 }
+#ifdef CONFIG_MACH_VIVO
 
+extern unsigned int is_atboot;
+#endif
 /* This init function should be called only once for each SDHC slot */
 static int sdhci_msm_vreg_init(struct device *dev,
 				struct sdhci_msm_pltfm_data *pdata,
@@ -2227,6 +2251,10 @@ static int sdhci_msm_vreg_init(struct device *dev,
 			goto vdd_reg_deinit;
 	}
 	ret = sdhci_msm_vreg_reset(pdata);
+#ifdef CONFIG_MACH_VIVO
+	if(is_atboot!=1)
+		mdelay(500);
+#endif
 	if (ret)
 		dev_err(dev, "vreg reset failed (%d)\n", ret);
 	goto out;
@@ -3469,6 +3497,17 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		msm_host->mmc->caps2 |= MMC_CAP2_NONHOTPLUG;
 
 	init_completion(&msm_host->pwr_irq_completion);
+#ifdef CONFIG_MACH_VIVO
+    if (gpio_is_valid(msm_host->pdata->vtf_gpio)) {
+               ret = mmc_gpio_request_cd_vtf(msm_host->mmc,
+                               msm_host->pdata->vtf_gpio);
+               if (ret) {
+                       dev_err(&pdev->dev, "%s: Failed to request card detection vtf IRQ %d\n",
+                                       __func__, ret);
+                       goto vreg_deinit;
+               }
+       }
+#endif
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		/*
@@ -3586,6 +3625,10 @@ remove_host:
 free_cd_gpio:
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_gpio_free_cd(msm_host->mmc);
+#ifdef CONFIG_MACH_VIVO
+    if (gpio_is_valid(msm_host->pdata->vtf_gpio))
+        mmc_gpio_free_cd_vtf(msm_host->mmc); 
+#endif
 	if (sdhci_is_valid_gpio_wakeup_int(msm_host))
 		free_irq(msm_host->pdata->sdiowakeup_irq, host);
 vreg_deinit:
@@ -3641,6 +3684,10 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_gpio_free_cd(msm_host->mmc);
+#ifdef CONFIG_MACH_VIVO
+    if (gpio_is_valid(msm_host->pdata->vtf_gpio))
+           mmc_gpio_free_cd_vtf(msm_host->mmc);
+#endif
 
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 
@@ -3770,6 +3817,10 @@ static int sdhci_msm_suspend(struct device *dev)
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_gpio_free_cd(msm_host->mmc);
+#ifdef CONFIG_MACH_VIVO
+    if (gpio_is_valid(msm_host->pdata->vtf_gpio))
+           mmc_gpio_free_cd_vtf(msm_host->mmc);
+#endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -3792,10 +3843,25 @@ static int sdhci_msm_resume(struct device *dev)
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		ret = mmc_gpio_request_cd(msm_host->mmc,
 				msm_host->pdata->status_gpio);
+#ifndef CONFIG_MACH_VIVO
 		if (ret)
 			pr_err("%s: %s: Failed to request card detection IRQ %d\n",
 					mmc_hostname(host->mmc), __func__, ret);
 	}
+#else
+		if (ret)
+			pr_err("%s: %s: Failed to request card detection IRQ %d\n",
+					mmc_hostname(host->mmc), __func__, ret);
+	}
+
+    if (gpio_is_valid(msm_host->pdata->vtf_gpio)) {
+           ret = mmc_gpio_request_cd_vtf(msm_host->mmc,
+                           msm_host->pdata->vtf_gpio);
+           if (ret)
+                   pr_err("%s: %s: Failed to request card detection VTF IRQ %d\n",
+                                   mmc_hostname(host->mmc), __func__, ret);
+   }
+#endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
