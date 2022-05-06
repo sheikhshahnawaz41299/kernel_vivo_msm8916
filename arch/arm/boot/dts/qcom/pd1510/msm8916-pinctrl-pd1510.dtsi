@@ -1,0 +1,235 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+*  Copyright (c) 2018, Ketut P. Kumajaya.
+*  Copyright (c) 2020, the_shahnawaz_sheikh (sheikhshahnawaz41299).
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 and
+* only version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+ 
+&tlmm_pinmux {
+
+
+		headset_irq: headset_gpio_irq {
+			qcom,pins = <&gp 9>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;			
+			label = "headset_gpio_irq";
+			headset_gpio_irq:headset_gpio_irq_state {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+			cdc-pdm-lines {
+				pdm_lines_off {
+				/delete-property/ bias-pull-down;
+					bias-disable;
+				};
+			};
+
+		card_detect:card_sim_detect {
+			qcom,pin-func = <0>;
+			label = "card_detect";
+			card_detect_gpio_state:default {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+		
+		sdhc2_cd_pin {
+
+				cd_off {
+                /delete-property/ bias-disable;
+					bias-pull-up;
+				};
+			};
+		pmx_sdc2_cmd {
+			qcom,pins = <&sdc 5>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc2-cmd";
+			sdc2_cmd_on: cmd_on {
+				bias-pull-up; /* pull up */
+				drive-strength = <12>; /* 10 MA */
+			};
+			sdc2_cmd_off: cmd_off {
+				bias-pull-up; /* pull up */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+		
+		/delete-node/ usb-id-pin;
+		
+		usb-id-pin {
+		      qcom,pins = <&gp 110>;
+		      qcom,num-grp-pins = <1>;
+		      qcom,pin-func = <0>;
+		      label = "usbid-vol-pin";
+		usbid_vol_default: default {
+			       drive-strength = <8>;
+			      /*bias-pull-up;*/
+			        output-high;
+				};
+			};
+		
+
+	pmx_i2c_3 {
+		/* CLK, DATA */
+		qcom,pins = <&gp 11>, <&gp 10>;
+		qcom,num-grp-pins = <2>;
+		qcom,pin-func = <2>;
+		label = "pmx_i2c_3";
+
+		i2c_3_active: i2c_3_active {
+			drive-strength = <2>; /* 2 MA */
+			bias-disable;		  /* No PULL */
+		};
+
+		i2c_3_sleep: i2c_3_sleep {
+			drive-strength = <2>; /* 2 MA */
+			bias-disable;		  /* No PULL */
+		};
+	};
+
+			pmx_mdss {
+				label = "mdss-pins";
+				/delete-property/ qcom,num-grp-pins;
+				/delete-property/ qcom,pins;
+				qcom,num-grp-pins = <1>;
+				qcom,pins = <&gp 97>;
+
+				active {
+				/delete-property/ output-high;
+				};
+
+				suspend {
+				/delete-property/ output-low;
+				};
+			};
+
+		/* VIVO_NFC */
+		pn5xx_gpio_0 {
+			qcom,pins = <&gp 118>, <&gp 0>, <&gp 3>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <3>;
+			label = "pn5xx_gpio_active_0";
+			pn5xx_gpio_active_0: pn5xx_gpio_active_0 {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		pn5xx_gpio_1 {
+			qcom,pins = <&gp 108>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pn5xx_gpio_active_1";
+			pn5xx_gpio_active_1: pn5xx_gpio_active_1 {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+		
+		
+		pmx_mdss_te {
+	      /delete-property/ qcom,num-grp-pins;
+		  /delete-property/ qcom,pins ;
+			};
+			
+			
+		tlmm_gpio_key {
+		/delete-property/ qcom,pins;
+		/delete-property/ qcom,num-grp-pins;
+		      qcom,pins = <&gp 107>;
+		      qcom,num-grp-pins = <1>;
+		};
+
+	
+	/* vivo add pingrp for touchscreen */
+		gt9xx_int_pin {
+            		qcom,pins = <&gp 13>;
+            		qcom,num-grp-pins = <1>;
+            		qcom,pin-func = <0>;
+            		label = "gt9xx_int_pin";
+            		/* active state */
+            		gt9xx_int_default: gt9xx_int_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;   /*[BUGFIX]MOD by TCTSZ-WH,2014-5-22,Configure TP INT as NO-PULL.*/
+			};
+            		/*suspended state */
+            		gt9xx_int_sleep: gt9xx_int_sleep {
+               			drive-strength = <2>; /* 2 MA */
+                		bias-disable;
+            		};
+        	};
+		/*vivo add end*/
+		
+		
+
+		
+		
+		cam_sensor_front_reset {
+			/* RESET */
+			qcom,pins = <&gp 28>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cam-sensor-front-reset";
+			/* active state */
+			cam_sensor_front_reset_default: default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+		cam_sensor_front_reset_sleep {
+			/* RESET */
+			qcom,pins = <&gp 28>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cam-sensor-front-reset-sleep";
+			/*suspended state */
+			cam_sensor_front_reset_sleep: sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down = <0>; /* PULL DOWN */
+			};
+		};
+        		cam_sensor_front_standby {
+			/* STANDBY */
+			qcom,pins = <&gp 33>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cam-sensor-front-standby";
+			/* active state */
+			cam_sensor_front_standby_default: default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+                         output-high;
+                     };
+		};
+		cam_sensor_front_standby_sleep {
+			/* STANDBY */
+			qcom,pins = <&gp 33>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cam-sensor-front-standby-sleep";
+			/*suspended state */
+			cam_sensor_front_standby_sleep: sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+		
+		bat-id-pin {
+			qcom,pins = <&gp 69>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "bat-id-pin";
+			batid_default: default {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+         
+};
