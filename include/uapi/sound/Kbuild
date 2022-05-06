@@ -17,3 +17,6 @@ header-y += audio_effects.h
 header-y += voice_svc.h
 header-y += devdep_params.h
 header-y += msmcal-hwdep.h
+#ifdef CONFIG_MACH_VIVO
+header-y += sndinfo_vivo.h
+#endif
