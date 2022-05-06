@@ -4,8 +4,12 @@
 #include <linux/v4l2-mediabus.h>
 
 #define KVERSION 0x1
+#ifndef CONFIG_MACH_VIVO
 
 #define MAX_POWER_CONFIG      12
+#else
+#define MAX_POWER_CONFIG      15
+#endif
 #define GPIO_OUT_LOW          (0 << 1)
 #define GPIO_OUT_HIGH         (1 << 1)
 #define CSI_EMBED_DATA        0x12
@@ -153,6 +157,9 @@ enum msm_actuator_addr_type {
 enum msm_actuator_write_type {
 	MSM_ACTUATOR_WRITE_HW_DAMP,
 	MSM_ACTUATOR_WRITE_DAC,
+#ifdef CONFIG_MACH_VIVO
+	MSM_ACTUATOR_WRITE_DAC_AR,//vivo buxiangyu add for ad5823
+#endif
 };
 
 enum msm_actuator_i2c_operation {
