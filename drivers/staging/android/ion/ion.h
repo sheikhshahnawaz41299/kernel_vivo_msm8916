@@ -27,6 +27,11 @@ struct ion_heap;
 struct ion_mapper;
 struct ion_client;
 struct ion_buffer;
+#ifdef CONFIG_MACH_VIVO
+//@vivo huangwenke-Performance FREE_ION_CACHED begin
+#define DEBUG_HEAP_SHRINKER
+//@vivo huangwenke-Performance FREE_ION_CACHED end
+#endif
 
 /* This should be removed some day when phys_addr_t's are fully
    plumbed in the kernel, and all instances of ion_phys_addr_t should
