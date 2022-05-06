@@ -107,6 +107,12 @@ struct mmc_ext_csd {
 	u8			raw_trim_mult;		/* 232 */
 	u8			raw_bkops_status;	/* 246 */
 	u8			raw_sectors[4];		/* 212 - 4 bytes */
+#ifdef CONFIG_MACH_VIVO
+    unsigned int firmware_version; /* 254 - 257 */
+    u8			dev_left_time;		/* 267*/
+	u8			dev_left_time_a;	/*268*/
+	u8			dev_left_time_b;	/*269*/
+#endif
 
 	unsigned int            feature_support;
 #define MMC_DISCARD_FEATURE	BIT(0)                  /* CMD38 feature */

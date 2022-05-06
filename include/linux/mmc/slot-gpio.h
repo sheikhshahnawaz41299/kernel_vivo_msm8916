@@ -20,5 +20,9 @@ void mmc_gpio_free_ro(struct mmc_host *host);
 int mmc_gpio_get_cd(struct mmc_host *host);
 int mmc_gpio_request_cd(struct mmc_host *host, unsigned int gpio);
 void mmc_gpio_free_cd(struct mmc_host *host);
+#ifdef CONFIG_MACH_VIVO
+int mmc_gpio_request_cd_vtf(struct mmc_host *host, unsigned int gpio);
+void mmc_gpio_free_cd_vtf(struct mmc_host *host);
+#endif
 
 #endif

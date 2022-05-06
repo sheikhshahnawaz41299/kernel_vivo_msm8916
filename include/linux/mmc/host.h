@@ -365,6 +365,9 @@ struct mmc_host {
 #ifdef CONFIG_MMC_DEBUG
 	unsigned int		removed:1;	/* host is being removed */
 #endif
+#ifdef CONFIG_MACH_VIVO
+    unsigned long long  speed_class;  /* speed class */
+#endif
 
 	int			rescan_disable;	/* disable card detection */
 	int			rescan_entered;	/* used with nonremovable devices */
@@ -381,6 +384,9 @@ struct mmc_host {
 	const char		*wlock_name;
 	int			detect_change;	/* card detect flag */
 	struct mmc_slot		slot;
+#ifdef CONFIG_MACH_VIVO
+   struct mmc_slot     slot_vtf;
+#endif
 
 	const struct mmc_bus_ops *bus_ops;	/* current bus driver */
 	unsigned int		bus_refs;	/* reference counter */
