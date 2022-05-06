@@ -3721,7 +3721,7 @@ static int bms_find_irqs(struct qpnp_bms_chip *chip,
 
 	return 0;
 }
-#ifndef CONFIG_MACH_VIVO
+
 
 
 static int64_t read_battery_id(struct qpnp_bms_chip *chip)
@@ -3738,22 +3738,7 @@ static int64_t read_battery_id(struct qpnp_bms_chip *chip)
 
 	return result.physical;
 }
-#else
-static int32_t read_battery_id(struct qpnp_bms_chip *chip)
-{
-	struct power_supply *cms = power_supply_get_by_name("cms");
-	union power_supply_propval val = {0,};
-	if(!cms){
-		pr_err("CMS not found!\n");
-		return -EPROBE_DEFER;
-	}
-	cms->get_property(cms, POWER_SUPPLY_PROP_SERIAL_NUMBER, &val);
-	pr_err("battery id:%d\n", val.intval);
-	if(!val.intval)
-        return 2;
-	return val.intval;
-}
-#endif
+
 
 static int show_bms_config(struct seq_file *m, void *data)
 {
