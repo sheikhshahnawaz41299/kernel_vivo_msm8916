@@ -116,7 +116,9 @@ struct mtp_dev {
 	uint16_t xfer_command;
 	uint32_t xfer_transaction_id;
 	int xfer_result;
+#ifndef CONFIG_MACH_VIVO
 	bool is_ptp;
+#endif
 };
 
 static struct usb_interface_descriptor mtp_interface_desc = {
@@ -344,10 +346,17 @@ struct ext_mtp_desc  mtp_ext_config_desc = {
 
 struct ext_mtp_desc ptp_ext_config_desc = {
 	.header = {
+#ifndef CONFIG_MACH_VIVO
 		.dwLength = cpu_to_le32(sizeof(mtp_ext_config_desc)),
 		.bcdVersion = cpu_to_le16(0x0100),
 		.wIndex = cpu_to_le16(4),
 		.bCount = cpu_to_le16(1),
+#else
+		.dwLength = __constant_cpu_to_le32(sizeof(mtp_ext_config_desc)),
+		.bcdVersion = __constant_cpu_to_le16(0x0100),
+		.wIndex = __constant_cpu_to_le16(4),
+		.bCount = __constant_cpu_to_le16(1),
+#endif
 	},
 	.function = {
 		.bFirstInterfaceNumber = 0,
@@ -355,7 +364,9 @@ struct ext_mtp_desc ptp_ext_config_desc = {
 		.compatibleID = { 'P', 'T', 'P' },
 	},
 };
-
+#ifdef CONFIG_MACH_VIVO
+bool is_ptp = false;
+#endif
 struct mtp_device_status {
 	__le16	wLength;
 	__le16	wCode;
@@ -1255,7 +1266,11 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 		if (ctrl->bRequest == 1
 				&& (ctrl->bRequestType & USB_DIR_IN)
 				&& (w_index == 4 || w_index == 5)) {
+#ifndef CONFIG_MACH_VIVO
 			if (!dev->is_ptp) {
+#else
+			if(!is_ptp) {
+#endif
 				value = (w_length <
 						sizeof(mtp_ext_config_desc) ?
 						w_length :
@@ -1385,7 +1400,11 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	while ((req = mtp_req_get(dev, &dev->intr_idle)))
 		mtp_request_free(req, dev->ep_intr);
 	dev->state = STATE_OFFLINE;
+#ifndef CONFIG_MACH_VIVO
 	dev->is_ptp = false;
+#else
+	is_ptp = false;
+#endif
 }
 
 static int mtp_function_set_alt(struct usb_function *f,
@@ -1491,8 +1510,11 @@ static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 	dev->function.unbind = mtp_function_unbind;
 	dev->function.set_alt = mtp_function_set_alt;
 	dev->function.disable = mtp_function_disable;
-
+#ifndef CONFIG_MACH_VIVO
 	dev->is_ptp = ptp_config;
+#else
+	is_ptp = ptp_config;
+#endif
 	return usb_add_function(c, &dev->function);
 }
 

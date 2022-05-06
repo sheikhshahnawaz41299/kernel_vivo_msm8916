@@ -89,6 +89,10 @@ static const char longname[] = "Gadget Android";
 #define PRODUCT_ID		0x0001
 
 #define ANDROID_DEVICE_NODE_NAME_LENGTH 11
+#ifdef CONFIG_MACH_VIVO
+#define MANUFACTURER_STRING "QUALCOMM"
+#define PRODUCT_STRING "vivo Android Phone"
+#endif
 
 struct android_usb_function {
 	char *name;
@@ -3487,9 +3491,15 @@ static int android_bind(struct usb_composite_dev *cdev)
 	device_desc.iProduct = id;
 
 	/* Default strings - should be updated by userspace */
+#ifndef CONFIG_MACH_VIVO
 	strlcpy(manufacturer_string, "Android",
 		sizeof(manufacturer_string) - 1);
 	strlcpy(product_string, "Android", sizeof(product_string) - 1);
+#else
+	strlcpy(manufacturer_string, MANUFACTURER_STRING,
+		sizeof(manufacturer_string) - 1);
+	strlcpy(product_string, PRODUCT_STRING, sizeof(product_string) - 1);
+#endif
 	strlcpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
 
 	id = usb_string_id(cdev);
