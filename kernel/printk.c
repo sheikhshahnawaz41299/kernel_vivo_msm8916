@@ -233,11 +233,19 @@ static size_t syslog_partial;
 
 /* index and sequence number of the first record stored in the buffer */
 static u64 log_first_seq;
+#ifndef CONFIG_MACH_VIVO
 static u32 log_first_idx;
+#else
+u32 log_first_idx = 0;
+#endif
 
 /* index and sequence number of the next record to store in the buffer */
 static u64 log_next_seq;
+#ifndef CONFIG_MACH_VIVO
 static u32 log_next_idx;
+#else
+u32 log_next_idx = 0;
+#endif
 
 /* the next printk record to write to the console */
 static u64 console_seq;
@@ -260,6 +268,9 @@ static u32 clear_idx;
 #define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
+#ifdef CONFIG_MACH_VIVO
+unsigned long log_addr = (unsigned long)__log_buf;
+#endif
 static u32 log_buf_len = __LOG_BUF_LEN;
 
 #if defined(CONFIG_OOPS_LOG_BUFFER)
