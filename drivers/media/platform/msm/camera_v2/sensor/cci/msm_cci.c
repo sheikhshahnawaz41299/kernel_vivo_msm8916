@@ -856,8 +856,15 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *cci_ctrl)
 {
 	int32_t rc = 0;
+#ifdef CONFIG_MACH_VIVO
+	struct cci_device *cci_dev;
+#endif
 	CDBG("%s line %d cmd %d\n", __func__, __LINE__,
 		cci_ctrl->cmd);
+#ifdef CONFIG_MACH_VIVO
+	cci_dev = v4l2_get_subdevdata(sd);
+	mutex_lock(&cci_dev->mutex);
+#endif
 	switch (cci_ctrl->cmd) {
 	case MSM_CCI_INIT:
 		rc = msm_cci_init(sd, cci_ctrl);
@@ -866,9 +873,17 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		rc = msm_cci_release(sd);
 		break;
 	case MSM_CCI_I2C_READ:
+#ifdef CONFIG_MACH_VIVO
+		if (cci_dev->cci_state == CCI_STATE_DISABLED)
+			break;
+#endif
 		rc = msm_cci_i2c_read_bytes(sd, cci_ctrl);
 		break;
 	case MSM_CCI_I2C_WRITE:
+#ifdef CONFIG_MACH_VIVO
+                if (cci_dev->cci_state == CCI_STATE_DISABLED)
+                        break;
+#endif
 		rc = msm_cci_i2c_write(sd, cci_ctrl);
 		break;
 	case MSM_CCI_GPIO_WRITE:
@@ -878,6 +893,9 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 	}
 	CDBG("%s line %d rc %d\n", __func__, __LINE__, rc);
 	cci_ctrl->status = rc;
+#ifdef CONFIG_MACH_VIVO
+	mutex_unlock(&cci_dev->mutex);
+#endif
 	return rc;
 }
 
@@ -1268,6 +1286,9 @@ static int msm_cci_probe(struct platform_device *pdev)
 		CDBG("%s: no enough memory\n", __func__);
 		return -ENOMEM;
 	}
+#ifdef CONFIG_MACH_VIVO
+	mutex_init(&new_cci_dev->mutex);
+#endif
 	v4l2_subdev_init(&new_cci_dev->msm_sd.sd, &msm_cci_subdev_ops);
 	new_cci_dev->msm_sd.sd.internal_ops = &msm_cci_internal_ops;
 	snprintf(new_cci_dev->msm_sd.sd.name,
@@ -1347,6 +1368,9 @@ cci_release_mem:
 	release_mem_region(new_cci_dev->mem->start,
 		resource_size(new_cci_dev->mem));
 cci_no_resource:
+#ifdef CONFIG_MACH_VIVO
+	mutex_destroy(&new_cci_dev->mutex);
+#endif
 	kfree(new_cci_dev);
 	return 0;
 }

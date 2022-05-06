@@ -134,6 +134,9 @@ struct cci_device {
 	uint8_t ref_count;
 	enum msm_cci_state_t cci_state;
 	uint32_t num_clk;
+#ifdef CONFIG_MACH_VIVO
+	struct mutex mutex;
+#endif
 
 	struct clk *cci_clk[CCI_NUM_CLK_MAX];
 	struct msm_camera_cci_i2c_queue_info

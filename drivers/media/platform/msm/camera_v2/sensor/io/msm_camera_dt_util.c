@@ -592,6 +592,18 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 				power_down_setting_t;
 			end--;
 		}
+#ifdef CONFIG_MACH_VIVO
+        	for (i = 0; i < size; i++) {
+		if (power_info->power_down_setting[i].seq_type == SENSOR_GPIO) {
+			if (power_info->power_down_setting[i].config_val == GPIO_OUT_LOW)
+				power_info->power_down_setting[i].config_val = GPIO_OUT_HIGH;
+			else if (power_info->power_down_setting[i].config_val == GPIO_OUT_HIGH)
+				power_info->power_down_setting[i].config_val = GPIO_OUT_LOW;
+            		CDBG("%s power_down_setting[%d].config_val = %ld\n", __func__, i,
+			power_info->power_down_setting[i].config_val);
+                } 
+	    }
+#endif
 	}
 	return rc;
 ERROR2:
@@ -1046,15 +1058,23 @@ int msm_camera_get_dt_vreg_data(struct device_node *of_node,
 	struct camera_vreg_t **cam_vreg, int *num_vreg)
 {
 	int rc = 0, i = 0;
+#ifdef CONFIG_MACH_VIVO
+	int32_t count = 0;
+#else
 	uint32_t count = 0;
+#endif
 	uint32_t *vreg_array = NULL;
 	struct camera_vreg_t *vreg = NULL;
 	bool custom_vreg_name =  false;
 
 	count = of_property_count_strings(of_node, "qcom,cam-vreg-name");
 	CDBG("%s qcom,cam-vreg-name count %d\n", __func__, count);
+#ifdef CONFIG_MACH_VIVO
+	if (count <= 0)
+#else
 
 	if (!count)
+#endif
 		return 0;
 
 	vreg = kzalloc(sizeof(*vreg) * count, GFP_KERNEL);
