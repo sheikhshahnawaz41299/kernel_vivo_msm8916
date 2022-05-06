@@ -27,6 +27,10 @@
  * from the panel. The function sends the PANEL_ALIVE=0 status to HAL
  * layer.
  */
+#ifdef CONFIG_MACH_VIVO
+extern int vivo_esd_check_ps_status;
+static int esd_err_cunt;
+#endif
 static void mdss_report_panel_dead(struct dsi_status_data *pstatus_data)
 {
 	char *envp[2] = {"PANEL_ALIVE=0", NULL};
@@ -184,6 +188,7 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 	if (mipi->mode == DSI_CMD_MODE)
 		mutex_unlock(&mdp5_data->ov_lock);
 	mutex_unlock(&ctl->offlock);
+#ifndef CONFIG_MACH_VIVO
 
 	if ((pstatus_data->mfd->panel_power_state == MDSS_PANEL_POWER_ON)) {
 		if (ret > 0)
@@ -192,4 +197,31 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 		else
 			mdss_report_panel_dead(pstatus_data);
 	}
+#else
+	if ((pstatus_data->mfd->panel_power_state == MDSS_PANEL_POWER_ON)) {
+		if (ret > 0)
+			{
+			schedule_delayed_work(&pstatus_data->check_status,
+				msecs_to_jiffies(interval));
+			esd_err_cunt =0;
+			}
+		else
+			{
+					
+			     if((++esd_err_cunt<40))
+			     	{
+			     if(vivo_esd_check_ps_status==1)
+			         mdss_report_panel_dead(pstatus_data);
+			     else
+				 schedule_delayed_work(&pstatus_data->check_status,
+				msecs_to_jiffies(interval));	
+			     	}
+				if((esd_err_cunt>=40))
+			    	{
+				  pdata->panel_info.esd_check_enabled = false;
+				 pr_err("[ESD]after esd recovery %d times, esd check  fail then disabled\n",esd_err_cunt);
+			    	}
+			}
+	}
+#endif
 }
