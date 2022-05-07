@@ -261,6 +261,32 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
+#ifdef CONFIG_MACH_VIVO
+	// add AVDD/AVEE enable control IO
+	if(ctrl_pdata->double_enable_gpio){
+		//enp for AVDD
+		if (gpio_is_valid(ctrl_pdata->disp_enp_gpio)) {
+			rc = gpio_request(ctrl_pdata->disp_enp_gpio,
+						"disp_enp_enable");
+			if (rc) {
+				pr_err("request disp_enp gpio failed, rc=%d\n",
+				       rc);
+				goto disp_en_gpio_err;
+			}
+		}
+		//enn for AVEE
+		if (gpio_is_valid(ctrl_pdata->disp_enn_gpio)) {
+			rc = gpio_request(ctrl_pdata->disp_enn_gpio,
+							"disp_enn_enable");
+			if (rc) {
+				pr_err("request disp_enn gpio failed, rc=%d\n",
+				       rc);
+				goto disp_enn_gpio_err;
+			}
+		}
+	}else {
+#endif
+
 
 	if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		rc = gpio_request(ctrl_pdata->disp_en_gpio,
@@ -271,6 +297,10 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			goto disp_en_gpio_err;
 		}
 	}
+#ifdef CONFIG_MACH_VIVO
+	}
+#endif
+
 	rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
 	if (rc) {
 		pr_err("request reset gpio failed, rc=%d\n",
@@ -302,8 +332,25 @@ mode_gpio_err:
 bklt_en_gpio_err:
 	gpio_free(ctrl_pdata->rst_gpio);
 rst_gpio_err:
+#ifdef CONFIG_MACH_VIVO
+	if(ctrl_pdata->double_enable_gpio){
+		if (gpio_is_valid(ctrl_pdata->disp_enn_gpio))
+			gpio_free(ctrl_pdata->disp_enn_gpio);
+	}else{
+#endif
 	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 		gpio_free(ctrl_pdata->disp_en_gpio);
+#ifdef CONFIG_MACH_VIVO
+	}
+#endif
+#ifdef CONFIG_MACH_VIVO
+disp_enn_gpio_err:
+	if(ctrl_pdata->double_enable_gpio){
+		if (gpio_is_valid(ctrl_pdata->disp_enp_gpio))
+			gpio_free(ctrl_pdata->disp_enp_gpio);
+	}
+#endif
+
 disp_en_gpio_err:
 	return rc;
 }
@@ -321,11 +368,27 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+#ifdef CONFIG_MACH_VIVO
+	if(ctrl_pdata->double_enable_gpio){
+		if (!gpio_is_valid(ctrl_pdata->disp_enp_gpio)) {
+			pr_debug("%s:%d, disp_enp_gpio line not configured\n",
+				__func__, __LINE__);
+		}
+		if (!gpio_is_valid(ctrl_pdata->disp_enn_gpio)) {
+			pr_debug("%s:%d, disp_enn_gpio line not configured\n",
+				__func__, __LINE__);
+		}
+	}
+	else{
+#endif
 
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
 	}
+#ifdef CONFIG_MACH_VIVO
+	}
+#endif
 
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
@@ -343,8 +406,24 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			return rc;
 		}
 		if (!pinfo->cont_splash_enabled) {
+#ifdef CONFIG_MACH_VIVO
+			//add for enn and enp contrl
+			if(ctrl_pdata->double_enable_gpio){
+				if (gpio_is_valid(ctrl_pdata->disp_enp_gpio))
+					gpio_set_value((ctrl_pdata->disp_enp_gpio), 1);
+				mdelay(12);
+				if (gpio_is_valid(ctrl_pdata->disp_enn_gpio))
+					gpio_set_value((ctrl_pdata->disp_enn_gpio), 1);
+			}else{
+#endif
+
 			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+#ifdef CONFIG_MACH_VIVO
+			}
+			mdelay(20);
+#endif
+
 
 			for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
 				gpio_set_value((ctrl_pdata->rst_gpio),
@@ -374,10 +453,31 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->bklt_en_gpio), 0);
 			gpio_free(ctrl_pdata->bklt_en_gpio);
 		}
+#ifdef CONFIG_MACH_VIVO
+		mdelay(100);
+		
+		if(ctrl_pdata->double_enable_gpio){			
+			if (gpio_is_valid(ctrl_pdata->disp_enn_gpio)) {
+				gpio_set_value((ctrl_pdata->disp_enn_gpio), 0);
+				gpio_free(ctrl_pdata->disp_enn_gpio);
+			}
+			mdelay(5);
+			if (gpio_is_valid(ctrl_pdata->disp_enp_gpio)) {
+				gpio_set_value((ctrl_pdata->disp_enp_gpio), 0);
+				gpio_free(ctrl_pdata->disp_enp_gpio);
+			}
+		}
+		else{
+#endif
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
+#ifdef CONFIG_MACH_VIVO
+
+		}
+#endif
+
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 		gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))

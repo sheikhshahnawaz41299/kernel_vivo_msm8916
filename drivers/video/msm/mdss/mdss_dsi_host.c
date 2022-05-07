@@ -29,6 +29,10 @@
 #include "mdss_debug.h"
 
 #define VSYNC_PERIOD 17
+#ifdef CONFIG_MACH_VIVO
+extern unsigned int is_atboot;
+#endif
+
 
 struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
 
