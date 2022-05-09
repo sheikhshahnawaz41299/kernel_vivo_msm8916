@@ -1,0 +1,10 @@
+config VIVO_REGDUMP
+	bool "vivo audio register dump enable"
+
+
+config SND_MACH5_COMMON
+	depends on SPI
+	bool "Enable YSS205X(MACH-5) common"
+	help
+		To add support for SoC audio on MACH-5 for KTV.
+

@@ -428,6 +428,11 @@ int snd_soc_platform_write(struct snd_soc_platform *platform,
 					unsigned int reg, unsigned int val);
 int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num);
 int soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num);
+#ifdef CONFIG_MACH_VIVO
+/* Add for vivo soc, by ChenJinQuan. */
+struct snd_soc_dai *snd_soc_get_dai(struct snd_soc_codec *codec, const char *name);
+#endif
+
 
 struct snd_pcm_substream *snd_soc_get_dai_substream(struct snd_soc_card *card,
 		const char *dai_link, int stream);
