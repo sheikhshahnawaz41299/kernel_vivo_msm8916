@@ -136,9 +136,23 @@ static bool dapm_dirty_widget(struct snd_soc_dapm_widget *w)
 void dapm_mark_dirty(struct snd_soc_dapm_widget *w, const char *reason)
 {
 	if (!dapm_dirty_widget(w)) {
+#ifndef CONFIG_MACH_VIVO
 		dev_vdbg(w->dapm->dev, "Marking %s dirty due to %s\n",
 			 w->name, reason);
+#else
+		dev_dbg(w->dapm->dev, "Marking %s dirty(dapm_dirty %p next %p) due to %s\n",
+			 w->name, &w->dapm->card->dapm_dirty,
+			 w->dapm->card->dapm_dirty.next, reason);
+#endif
 		list_add_tail(&w->dirty, &w->dapm->card->dapm_dirty);
+#ifdef CONFIG_MACH_VIVO
+	} else {
+		dev_dbg(w->dapm->dev, "%s dirty(%p) dirty->next(%p) dapm_dirty(%p) dapm_dirty->next(%p) %s\n",
+			 w->name, &w->dirty, w->dirty.next,
+			 &w->dapm->card->dapm_dirty,
+			 w->dapm->card->dapm_dirty.next, reason);
+#endif
+
 	}
 }
 EXPORT_SYMBOL_GPL(dapm_mark_dirty);
@@ -1239,6 +1253,11 @@ static void dapm_seq_insert(struct snd_soc_dapm_widget *new_widget,
 			    bool power_up)
 {
 	struct snd_soc_dapm_widget *w;
+#ifdef CONFIG_MACH_VIVO
+
+	dev_dbg(new_widget->dapm->dev, "ASoC: Add %s to power %s list\n",
+			new_widget->name, power_up ? "up" : "down");
+#endif
 
 	list_for_each_entry(w, list, power_list)
 		if (dapm_seq_compare(new_widget, w, power_up) < 0) {
@@ -1579,6 +1598,11 @@ static void dapm_widget_set_power(struct snd_soc_dapm_widget *w, bool power,
 				  struct list_head *down_list)
 {
 	struct snd_soc_dapm_path *path;
+#ifdef CONFIG_MACH_VIVO
+
+	dev_dbg(w->dapm->dev, "%s %s power %d %d\n",
+		__func__, w->name, w->power, power);
+#endif
 
 	if (w->power == power)
 		return;
@@ -1624,6 +1648,12 @@ static void dapm_power_one_widget(struct snd_soc_dapm_widget *w,
 {
 	int power;
 
+#ifdef CONFIG_MACH_VIVO
+	dev_dbg(w->dapm->dev, "%s %s id %d\n",
+		__func__, w->name, w->id);
+#endif
+
+
 	switch (w->id) {
 	case snd_soc_dapm_pre:
 		dapm_seq_insert(w, down_list, false);
@@ -1658,6 +1688,10 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	LIST_HEAD(down_list);
 	ASYNC_DOMAIN_EXCLUSIVE(async_domain);
 	enum snd_soc_bias_level bias;
+#ifdef CONFIG_MACH_VIVO
+
+	dev_dbg(dapm->dev, "%s enter\n", __func__);
+#endif
 
 	trace_snd_soc_dapm_start(card);
 	mutex_lock(&dapm->card->dapm_power_mutex);
@@ -1676,6 +1710,13 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	 * that new widgets may be added to the dirty list while we
 	 * iterate.
 	 */
+#ifdef CONFIG_MACH_VIVO
+	dev_dbg(dapm->dev, "%s check power list, card(%p) card->dapm_dirty(%p)\n",
+		__func__, card, &card->dapm_dirty);
+	dev_dbg(dapm->dev, "%s check power list, card->widgets(%p) card->widgets.next(%p)\n",
+		__func__, &card->widgets, card->widgets.next);
+#endif
+
 	list_for_each_entry(w, &card->dapm_dirty, dirty) {
 		dapm_power_one_widget(w, &up_list, &down_list);
 	}
@@ -1687,6 +1728,10 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 			/* These widgets always need to be powered */
 			break;
 		default:
+#ifdef CONFIG_MACH_VIVO
+			dev_dbg(dapm->dev, "%s list_del_init %s dirty(%p) next(%p) prev(%p)\n",
+				__func__, w->name, &w->dirty, w->dirty.next, w->dirty.prev);
+#endif
 			list_del_init(&w->dirty);
 			break;
 		}
@@ -1741,11 +1786,18 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	async_synchronize_full_domain(&async_domain);
 
 	/* Power down widgets first; try to avoid amplifying pops. */
+#ifdef CONFIG_MACH_VIVO
+	dev_dbg(dapm->dev, "%s power down widgets\n", __func__);
+#endif
+
 	dapm_seq_run(dapm, &down_list, event, false);
 
 	dapm_widget_update(dapm);
 
 	/* Now power up. */
+#ifdef CONFIG_MACH_VIVO
+	dev_dbg(dapm->dev, "%s power up widgets\n", __func__);
+#endif
 	dapm_seq_run(dapm, &up_list, event, true);
 
 	/* Run all the bias changes in parallel */
@@ -1767,6 +1819,10 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	pop_wait(card->pop_time);
 	mutex_unlock(&dapm->card->dapm_power_mutex);
 	trace_snd_soc_dapm_done(card);
+#ifdef CONFIG_MACH_VIVO
+
+	dev_dbg(dapm->dev, "%s leave\n", __func__);
+#endif
 
 	return 0;
 }
@@ -2010,6 +2066,11 @@ static int soc_dapm_mixer_update_power(struct snd_soc_dapm_widget *widget,
 		/* found, now check type */
 		found = 1;
 		path->connect = connect;
+#ifdef CONFIG_MACH_VIVO
+		pr_err("widget %s, path->source %s\n",
+			widget->name, path->source->name);
+#endif
+
 		dapm_mark_dirty(path->source, "mixer connection");
 	}
 
@@ -3050,15 +3111,19 @@ int snd_soc_dapm_put_pin_switch(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
 	const char *pin = (const char *)kcontrol->private_value;
+#ifndef CONFIG_MACH_VIVO
 
 	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
+#endif
 
 	if (ucontrol->value.integer.value[0])
 		snd_soc_dapm_enable_pin(&card->dapm, pin);
 	else
 		snd_soc_dapm_disable_pin(&card->dapm, pin);
+#ifndef CONFIG_MACH_VIVO
 
 	mutex_unlock(&card->dapm_mutex);
+#endif
 
 	snd_soc_dapm_sync(&card->dapm);
 	return 0;

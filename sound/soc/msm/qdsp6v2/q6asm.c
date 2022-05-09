@@ -1407,6 +1407,12 @@ static int32_t is_no_wait_cmd_rsp(uint32_t opcode, uint32_t *cmd_type)
 			case ASM_SESSION_CMD_RUN_V2:
 			case ASM_SESSION_CMD_PAUSE:
 			case ASM_DATA_CMD_EOS:
+#ifdef CONFIG_MACH_VIVO
+			case ASM_DATA_CMD_REMOVE_INITIAL_SILENCE:
+			case ASM_DATA_CMD_REMOVE_TRAILING_SILENCE:
+			//two line :sync Qcom_patch--96bbeed546b32cf532a1c29d1aa7a8759fb38b62
+#endif
+
 				return 1;
 			default:
 				pr_err("%s: default err 0x%x\n",
@@ -5529,19 +5535,36 @@ int __q6asm_send_meta_data(struct audio_client *ac, uint32_t stream_id,
 
 	silence.hdr.opcode = ASM_DATA_CMD_REMOVE_INITIAL_SILENCE;
 	silence.num_samples_to_remove    = initial_samples;
+#ifdef CONFIG_MACH_VIVO
+	atomic_inc(&ac->nowait_cmd_cnt);
+	//sync Qcom_patch--96bbeed546b32cf532a1c29d1aa7a8759fb38b62
+#endif
+
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &silence);
 	if (rc < 0) {
 		pr_err("%s: Commmand silence failed[%d]", __func__, rc);
+#ifdef CONFIG_MACH_VIVO
+		atomic_dec(&ac->nowait_cmd_cnt);
+		//sync Qcom_patch--96bbeed546b32cf532a1c29d1aa7a8759fb38b62
+#endif
 		goto fail_cmd;
 	}
 
 	silence.hdr.opcode = ASM_DATA_CMD_REMOVE_TRAILING_SILENCE;
 	silence.num_samples_to_remove    = trailing_samples;
+#ifdef CONFIG_MACH_VIVO
+	atomic_inc(&ac->nowait_cmd_cnt);
+	//sync Qcom_patch--96bbeed546b32cf532a1c29d1aa7a8759fb38b62
+#endif
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &silence);
 	if (rc < 0) {
 		pr_err("%s: Commmand silence failed[%d]", __func__, rc);
+#ifdef CONFIG_MACH_VIVO
+		atomic_dec(&ac->nowait_cmd_cnt);
+		//sync Qcom_patch--96bbeed546b32cf532a1c29d1aa7a8759fb38b62
+#endif
 		goto fail_cmd;
 	}
 

@@ -163,6 +163,10 @@ struct wcd_mbhc {
 
 	wait_queue_head_t wait_btn_press;
 	bool is_btn_press;
+#ifdef CONFIG_MACH_VIVO
+	bool is_hs_inserted;
+#endif
+
 	u8 current_plug;
 	bool in_swch_irq_handler;
 	bool hphl_swh; /*track HPHL switch NC / NO */
@@ -201,6 +205,9 @@ struct wcd_mbhc {
 	/* Work to correct accessory type */
 	struct work_struct correct_plug_swch;
 	struct notifier_block nblock;
+#if 1//def BBK_HEADSET_GPIO
+	struct dentry *at_file_node;
+#endif
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \

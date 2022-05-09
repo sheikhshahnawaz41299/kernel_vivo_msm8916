@@ -54,6 +54,10 @@
 #define FW_READ_ATTEMPTS 15
 #define FW_READ_TIMEOUT 4000000
 #define FAKE_REM_RETRY_ATTEMPTS 3
+#ifdef CONFIG_MACH_VIVO
+int micbias2_status = 0;
+#endif
+
 
 static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,

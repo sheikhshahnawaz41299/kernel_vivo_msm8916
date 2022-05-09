@@ -617,8 +617,12 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, bool perf_mode,
 						app_type);
 				sample_rate =
 					app_type_cfg[app_type_idx].sample_rate;
+#ifndef CONFIG_MACH_VIVO
 				bit_width =
 					app_type_cfg[app_type_idx].bit_width;
+#else
+			   app_type_cfg[app_type_idx].bit_width = bit_width;
+#endif
 			} else {
 				sample_rate = msm_bedais[i].sample_rate;
 			}
@@ -724,8 +728,12 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
 				fe_dai_app_type_cfg[fedai_id].sample_rate;
+#ifndef CONFIG_MACH_VIVO
 				bits_per_sample =
 					app_type_cfg[app_type_idx].bit_width;
+#else
+				app_type_cfg[app_type_idx].bit_width = bits_per_sample;
+#endif
 			} else
 				sample_rate = msm_bedais[i].sample_rate;
 
@@ -743,6 +751,11 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 				(copp_idx >= MAX_COPPS_PER_PORT)) {
 				pr_err("%s: adm open failed copp_idx:%d\n",
 					__func__, copp_idx);
+#ifdef CONFIG_MACH_VIVO
+				mutex_unlock(&routing_lock);
+				//sync Qcom_patch--96bbeed546b32cf532a1c29d1aa7a8759fb38b62
+#endif
+
 				return -EINVAL;
 			}
 			pr_debug("%s: setting idx bit of fe:%d, type: %d, be:%d\n",
@@ -939,8 +952,12 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
 					fe_dai_app_type_cfg[val].sample_rate;
+#ifndef CONFIG_MACH_VIVO
 				bits_per_sample =
 					app_type_cfg[app_type_idx].bit_width;
+#else
+                app_type_cfg[app_type_idx].bit_width = bits_per_sample;
+#endif
 			} else
 				sample_rate = msm_bedais[reg].sample_rate;
 
@@ -2571,6 +2588,12 @@ static const struct snd_kcontrol_new mmul2_mixer_controls[] = {
 	SOC_SINGLE_EXT("PRI_MI2S_TX", MSM_BACKEND_DAI_PRI_MI2S_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
+#ifdef CONFIG_MACH_VIVO
+	SOC_SINGLE_EXT("TERT_MI2S_TX", MSM_BACKEND_DAI_TERTIARY_MI2S_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),// added for engineer mode
+#endif
+
 	SOC_SINGLE_EXT("QUAT_MI2S_TX", MSM_BACKEND_DAI_QUATERNARY_MI2S_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
@@ -4645,6 +4668,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia1 Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"MultiMedia2 Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"MultiMedia1 Mixer", "TERT_MI2S_TX", "TERT_MI2S_TX"},
+#ifdef CONFIG_MACH_VIVO
+	{"MultiMedia2 Mixer", "TERT_MI2S_TX", "TERT_MI2S_TX"},
+#endif
+
 	{"MultiMedia1 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia1 Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},
 	{"MultiMedia5 Mixer", "AUX_PCM_TX", "AUX_PCM_TX"},
@@ -5239,6 +5266,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"PRI_MI2S_RX", NULL, "PRI_MI2S_RX Port Mixer"},
 
 	{"QUAT_MI2S_RX Port Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
+#ifdef CONFIG_MACH_VIVO
+	{"QUAT_MI2S_RX Port Mixer", "TERT_MI2S_TX", "TERT_MI2S_TX"},
+#endif
+
 	{"QUAT_MI2S_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
 	{"QUAT_MI2S_RX", NULL, "QUAT_MI2S_RX Port Mixer"},
 
@@ -5463,6 +5494,11 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			if ((copp_idx < 0) ||
 				(copp_idx >= MAX_COPPS_PER_PORT)) {
 				pr_err("%s: adm open failed\n", __func__);
+#ifdef CONFIG_MACH_VIVO
+				mutex_unlock(&routing_lock);
+				//sync Qcom_patch--96bbeed546b32cf532a1c29d1aa7a8759fb38b62
+#endif
+
 				return -EINVAL;
 			}
 			pr_debug("%s: setting idx bit of fe:%d, type: %d, be:%d\n",

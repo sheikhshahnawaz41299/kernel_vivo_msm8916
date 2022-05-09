@@ -29,8 +29,13 @@
 
 #include <sound/asound.h>
 #include "msm-dts-eagle.h"
+#ifdef CONFIG_MACH_VIVO
+#define TIMEOUT_MS 3000 //lengthen the waiting time as qualcomm recommended.
+#else
+
 
 #define TIMEOUT_MS 1000
+#endif
 
 #define RESET_COPP_ID 99
 #define INVALID_COPP_ID 0xFF

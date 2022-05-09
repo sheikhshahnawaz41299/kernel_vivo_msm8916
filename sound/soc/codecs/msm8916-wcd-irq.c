@@ -158,11 +158,14 @@ int wcd9xxx_spmi_request_irq(int irq, irq_handler_t handler,
 			const char *name, void *priv)
 {
 	int rc;
+#ifndef CONFIG_MACH_VIVO
 	unsigned long irq_flags;
+#endif
 
 	map.linuxirq[irq] =
 		spmi_get_irq_byname(map.spmi[BIT_BYTE(irq)], NULL,
 				    irq_names[irq]);
+#ifndef CONFIG_MACH_VIVO
 
 	if (strcmp(name, "mbhc sw intr"))
 		irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
@@ -171,11 +174,18 @@ int wcd9xxx_spmi_request_irq(int irq, irq_handler_t handler,
 		irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
 			IRQF_ONESHOT | IRQF_NO_SUSPEND;
 	pr_debug("%s: name:%s irq_flags = %lx\n", __func__, name, irq_flags);
+#endif
 
 	rc = devm_request_threaded_irq(&map.spmi[BIT_BYTE(irq)]->dev,
 				map.linuxirq[irq], NULL,
 				wcd9xxx_spmi_irq_handler,
+#ifdef CONFIG_MACH_VIVO
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
+				| IRQF_ONESHOT,
+#else
+
 				irq_flags,
+#endif
 				name, priv);
 		if (rc < 0) {
 			dev_err(&map.spmi[BIT_BYTE(irq)]->dev,

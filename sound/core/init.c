@@ -124,6 +124,10 @@ static unsigned int snd_card_state_poll(struct snd_info_entry *entry,
 					void *private_data, struct file *file,
 					poll_table *wait)
 {
+#ifdef CONFIG_MACH_VIVO
+	pr_info("%s:enter.\n",__func__);//qbq
+#endif
+
 	poll_wait(file, &entry->card->offline_poll_wait, wait);
 	if (xchg(&entry->card->offline_change, 0))
 		return POLLIN | POLLPRI | POLLRDNORM;

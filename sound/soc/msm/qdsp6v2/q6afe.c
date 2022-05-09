@@ -3753,7 +3753,12 @@ int afe_set_lpass_clock(u16 port_id, struct afe_clk_cfg *cfg)
 
 	ret = wait_event_timeout(this_afe.wait[index],
 			(atomic_read(&this_afe.state) == 0),
+#ifdef CONFIG_MACH_VIVO
+			msecs_to_jiffies(2000));//wait another 1000ms for apr timeout 
+#else
+
 			msecs_to_jiffies(TIMEOUT_MS));
+#endif
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
