@@ -21,7 +21,6 @@
 #include <linux/gpio.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
-#include <linux/pm_qos.h>////lrz add
 #include <linux/leds-qpnp-wled.h>
 #include <linux/clk.h>
 
@@ -31,33 +30,6 @@
 #include "mdss_debug.h"
 
 #define XO_CLK_RATE	19200000
-/* AT mode */
-static unsigned int is_atboot;
-
-#define DSI_DISABLE_PC_LATENCY 100
-#define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
-
-static struct pm_qos_request mdss_dsi_pm_qos_request;
-int bl_IC_diff_gpio=0;
-static void mdss_dsi_pm_qos_add_request(void)
-{
-	pr_debug("%s: add request",__func__);
-	pm_qos_add_request(&mdss_dsi_pm_qos_request, PM_QOS_CPU_DMA_LATENCY,
-			PM_QOS_DEFAULT_VALUE);
-}
-
-static void mdss_dsi_pm_qos_remove_request(void)
-{
-	pr_debug("%s: remove request",__func__);
-	pm_qos_remove_request(&mdss_dsi_pm_qos_request);
-}
-
-static void mdss_dsi_pm_qos_update_request(int val)
-{
-	pr_debug("%s: update request %d",__func__,val);
-	pm_qos_update_request(&mdss_dsi_pm_qos_request, val);
-}
-
 
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
@@ -730,8 +702,6 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 				panel_data);
 	mipi  = &pdata->panel_info.mipi;
 
-	mdss_dsi_pm_qos_update_request(DSI_DISABLE_PC_LATENCY);//lrz add
-
 	pr_debug("%s+: ctrl=%p ndx=%d cur_blank_state=%d\n", __func__,
 		ctrl_pdata, ctrl_pdata->ndx, pdata->panel_info.blank_state);
 
@@ -765,7 +735,6 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 
 error:
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
-	mdss_dsi_pm_qos_update_request(DSI_ENABLE_PC_LATENCY);
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -1341,10 +1310,6 @@ static struct device_node *mdss_dsi_pref_prim_panel(
 
 	return dsi_pan_node;
 }
-int lcm_software_id = 0x00;
-static char  *lcm_id_str = "lcm_software_id=71";
-int backlight_hw_id = 0;
-static char  *backlight_id_str = "backlight_hw_id=1";
 
 /**
  * mdss_dsi_find_panel_of_node(): find device node of dsi panel
@@ -1368,7 +1333,6 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	char ctrl_id_stream[3] =  "0:";
 	char *stream = NULL, *pan = NULL;
-	char *backlightid = NULL;
 	struct device_node *dsi_pan_node = NULL, *mdss_node = NULL;
 
 	len = strlen(panel_cfg);
@@ -1395,23 +1359,6 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 			for (i = 0; (stream + i) < pan; i++)
 				panel_name[i] = *(stream + i);
 			panel_name[i] = 0;
-
-			if(!strcmp(panel_name, "qcom,mdss_dsi_tryotm1901a_1080p_video")){
-				pr_err("%s: for TRULY MTP error 1027 1525 \n", __func__);
-				if (strnstr(panel_cfg, lcm_id_str, len)) 				
-				lcm_software_id = 0x71;				
-			}
-
-			// add for backlight id begin
-			backlightid = strnstr(panel_cfg, backlight_id_str, len);
-			if (backlightid) {
-				backlight_hw_id = 1;
-			}
-			else
-			{
-				backlight_hw_id = 0;
-			}
-			// add for backlight id end
 		}
 
 		pr_debug("%s:%d:%s:%s\n", __func__, __LINE__,
@@ -1590,8 +1537,6 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		}
 		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
-
-	mdss_dsi_pm_qos_add_request();
 	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
 	return 0;
 
@@ -1619,8 +1564,6 @@ static int mdss_dsi_ctrl_remove(struct platform_device *pdev)
 		pr_err("%s: no driver data\n", __func__);
 		return -ENODEV;
 	}
-
-	mdss_dsi_pm_qos_remove_request();
 
 	for (i = DSI_MAX_PM - 1; i >= 0; i--) {
 		if (msm_dss_config_vreg(&pdev->dev,
@@ -1847,36 +1790,14 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	 * If disp_en_gpio has been set previously (disp_en_gpio > 0)
 	 *  while parsing the panel node, then do not override it
 	 */
-	ctrl_pdata->double_enable_gpio= of_property_read_bool(ctrl_pdev->dev.of_node,
-				"qcom,platform-enp-enn-gpio");
-  
-	if(ctrl_pdata->double_enable_gpio){
-		ctrl_pdata->disp_enp_gpio = of_get_named_gpio(
+	if (ctrl_pdata->disp_en_gpio <= 0) {
+		ctrl_pdata->disp_en_gpio = of_get_named_gpio(
 			ctrl_pdev->dev.of_node,
-			"qcom,platform-enable-enp-gpio", 0);
+			"qcom,platform-enable-gpio", 0);
 
-			//enp
-		if (!gpio_is_valid(ctrl_pdata->disp_enp_gpio))
-			pr_err("%s:%d, Disp_enp gpio not specified\n",
+		if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
+			pr_err("%s:%d, Disp_en gpio not specified\n",
 					__func__, __LINE__);
-              //enn
-	       ctrl_pdata->disp_enn_gpio = of_get_named_gpio(
-			ctrl_pdev->dev.of_node,
-			"qcom,platform-enable-enn-gpio", 0);
-
-		if (!gpio_is_valid(ctrl_pdata->disp_enn_gpio))
-			pr_err("%s:%d, Disp_enn gpio not specified\n",
-					__func__, __LINE__);
-	}else{
-		if (ctrl_pdata->disp_en_gpio <= 0) {
-			ctrl_pdata->disp_en_gpio = of_get_named_gpio(
-				ctrl_pdev->dev.of_node,
-				"qcom,platform-enable-gpio", 0);
-
-			if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
-				pr_err("%s:%d, Disp_en gpio not specified\n",
-						__func__, __LINE__);
-		}
 	}
 
 	ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
@@ -1890,52 +1811,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		"qcom,platform-bklight-en-gpio", 0);
 	if (!gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 		pr_info("%s: bklt_en gpio not specified\n", __func__);
-
-	// add for spotlight enable begin
-	ctrl_pdata->spotlt_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
-		"qcom,platform-spotlight-en-gpio", 0);
-	if (!gpio_is_valid(ctrl_pdata->spotlt_en_gpio))
-			pr_info("%s: spotlt_en_gpio gpio not specified\n", __func__);
-	else
-		{
-			rc = gpio_request(ctrl_pdata->spotlt_en_gpio, "vivo_spotlt_en_gpio");
-				if (rc) {
-					pr_err("request spotlt_en_gpio gpio failed,rc=%d\n",	rc);
-
-								}
-		}	
-
-	ctrl_pdata->bl_IC_diff_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
-		"qcom,platform-bl-ic-diff-gpio", 0);
-	if (!gpio_is_valid(ctrl_pdata->bl_IC_diff_gpio))		
-	pr_info("%s: bl-ic-diff-gpio not specified\n", __func__);
-	else
-		{
-	gpio_direction_output((ctrl_pdata->bl_IC_diff_gpio), 1); ////GPIO output 1.8V
-	//gpio_set_value((ctrl_pdata->bl_IC_diff_gpio), 1); ////GPIO output 1.8V
-	mdelay(5);	
-	bl_IC_diff_gpio=gpio_get_value(ctrl_pdata->bl_IC_diff_gpio) ;//OK
-		}
-
-	// add for spotlight enable end	
-	
-	//add for vivo indicator light
-	ctrl_pdata->vivo_led_enable = of_get_named_gpio(ctrl_pdev->dev.of_node,
-		"vivo,led-en-gpio", 0);
-	if (!gpio_is_valid(ctrl_pdata->vivo_led_enable)){
-		pr_info("%s: vivo_led_enable gpio not specified\n", __func__);
-		ctrl_pdata->vivo_led_flag = 0;
-	}else{
-		rc = gpio_request(ctrl_pdata->vivo_led_enable,
-						"vivo_led_enable");
-		ctrl_pdata->vivo_led_flag = 1;
-		if (rc) {
-			pr_err("request vivo_led_enable gpio failed, rc=%d\n",
-					       rc);
-			ctrl_pdata->vivo_led_flag = 0;
-		}
-	}
-	//add end
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
@@ -2041,9 +1916,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			return rc;
 		}
 	}
-
-	if(is_atboot == 1)
-		pinfo->cont_splash_enabled =  false;
 
 	if (pinfo->cont_splash_enabled) {
 		rc = mdss_dsi_panel_power_ctrl(&(ctrl_pdata->panel_data),

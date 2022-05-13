@@ -338,15 +338,8 @@ struct mdss_dsi_ctrl_pdata {
 	int disp_te_gpio;
 	int rst_gpio;
 	int disp_en_gpio;
-	int disp_enp_gpio;
-	int disp_enn_gpio;
-	bool double_enable_gpio;
 	int bklt_en_gpio;
-	int spotlt_en_gpio; // add for spotlight
-	int bl_IC_diff_gpio;////lra add to diff LV52207 from R1214 20160329
 	int mode_gpio;
-	int vivo_led_flag; //add fot indicator light
-	int vivo_led_enable; //add fot indicator light
 	int bklt_ctrl;	/* backlight ctrl */
 	bool pwm_pmi;
 	int pwm_period;
@@ -377,12 +370,6 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds status_cmds;
-	struct dsi_panel_cmds lcm_page_select_cmds; //add for lcm vgh vgl test
-	struct dsi_panel_cmds lcm_display_on_cmds; //add for lcm vgh vgl test
-	struct dsi_panel_cmds lcm_vgh_max_cmds;
-	struct dsi_panel_cmds lcm_vgh_min_cmds;
-	struct dsi_panel_cmds lcm_vgl_max_cmds;
-	struct dsi_panel_cmds lcm_vgl_min_cmds;// add for lcm vgh vgl test
 	u32 status_cmds_rlen;
 	u32 status_value;
 	u32 status_error_count;

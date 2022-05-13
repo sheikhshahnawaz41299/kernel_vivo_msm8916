@@ -31,8 +31,6 @@
 #define VSYNC_PERIOD 17
 #define DMA_TX_TIMEOUT 200
 #define DMA_TPG_FIFO_LEN 64
-extern unsigned int is_atboot;
-
 
 struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
 
@@ -663,13 +661,11 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		data0 = MIPI_INP(ctrl0->ctrl_base + 0x0004);
 		data1 = MIPI_INP(ctrl1->ctrl_base + 0x0004);
 		/* Disable DSI video mode */
-		MIPI_OUTP(ctrl0->ctrl_base + 0x004, (data0 & ~BIT(1)));
-              MIPI_OUTP(ctrl1->ctrl_base + 0x004, (data1 & ~BIT(1)));
+		MIPI_OUTP(ctrl0->ctrl_base + 0x004, 0x1f5);
+		MIPI_OUTP(ctrl1->ctrl_base + 0x004, 0x1f5);
 		/* Disable DSI controller */
-		MIPI_OUTP(ctrl0->ctrl_base + 0x004,
-                                     (data0 & ~(BIT(0) | BIT(1))));
-              MIPI_OUTP(ctrl1->ctrl_base + 0x004,
-                                     (data1 & ~(BIT(0) | BIT(1))));
+		MIPI_OUTP(ctrl0->ctrl_base + 0x004, 0x1f4);
+		MIPI_OUTP(ctrl1->ctrl_base + 0x004, 0x1f4);
 		/* "Force On" all dynamic clocks */
 		MIPI_OUTP(ctrl0->ctrl_base + 0x11c, 0x100a00);
 		MIPI_OUTP(ctrl1->ctrl_base + 0x11c, 0x100a00);
@@ -687,8 +683,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		MIPI_OUTP(ctrl1->ctrl_base + 0x11c, 0x00); /* DSI_CLK_CTRL */
 
 		/* Enable DSI controller */
-		MIPI_OUTP(ctrl0->ctrl_base + 0x004, (data0 & ~BIT(1)));
-		MIPI_OUTP(ctrl1->ctrl_base + 0x004, (data1 & ~BIT(1)));
+		MIPI_OUTP(ctrl0->ctrl_base + 0x004, 0x1f5);
+		MIPI_OUTP(ctrl1->ctrl_base + 0x004, 0x1f5);
 
 		/*
 		 * Toggle Clk lane Force TX stop so that
@@ -726,8 +722,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 & ~mask);
 
 		/* Enable Video mode for DSI controller */
-		MIPI_OUTP(ctrl0->ctrl_base + 0x004, data0);
-                MIPI_OUTP(ctrl1->ctrl_base + 0x004, data1);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x004, 0x1f7);
+		MIPI_OUTP(ctrl1->ctrl_base + 0x004, 0x1f7);
 
 		/*
 		 * Enable PHY contention detection and receive.
@@ -749,10 +745,9 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 
 		data0 = MIPI_INP(ctrl->ctrl_base + 0x0004);
 		/* Disable DSI video mode */
-		MIPI_OUTP(ctrl->ctrl_base + 0x004, (data0 & ~BIT(1)));
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f5);
 		/* Disable DSI controller */
-		MIPI_OUTP(ctrl->ctrl_base + 0x004,
-                                     (data0 & ~(BIT(0) | BIT(1))));
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f4);
 		/* "Force On" all dynamic clocks */
 		MIPI_OUTP(ctrl->ctrl_base + 0x11c, 0x100a00);
 
@@ -765,7 +760,7 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		/* Remove "Force On" all dynamic clocks */
 		MIPI_OUTP(ctrl->ctrl_base + 0x11c, 0x00);
 		/* Enable DSI controller */
-		MIPI_OUTP(ctrl->ctrl_base + 0x004, (data0 & ~BIT(1)));
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f5);
 
 		/*
 		 * Toggle Clk lane Force TX stop so that
@@ -796,7 +791,7 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		MIPI_OUTP(ctrl->ctrl_base + 0x0ac, ln_ctrl0 & ~mask);
 
 		/* Enable Video mode for DSI controller */
-		MIPI_OUTP(ctrl->ctrl_base + 0x004, data0);
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f7);
 		/* Enable PHY contention detection and receiver */
 		MIPI_OUTP((ctrl->phy_io.base) + 0x0188, 0x6);
 		/*
@@ -1687,8 +1682,6 @@ end:
 	return rp->read_cnt;
 }
 
-//#define DMA_TX_TIMEOUT 200///move to the top
-
 static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					struct dsi_buf *tp)
 {
@@ -2268,7 +2261,7 @@ static int dsi_event_thread(void *data)
 	struct mdss_dsi_ctrl_pdata *ctrl;
 	unsigned long flag;
 	struct sched_param param;
-	u32 todo = 0, ln_status, force_clk_ln_hs, ctrl_reg;
+	u32 todo = 0, ln_status, force_clk_ln_hs;
 	u32 arg;
 	int ret;
 
@@ -2328,14 +2321,12 @@ static int dsi_event_thread(void *data)
 			ln_status = MIPI_INP(ctrl->ctrl_base + 0x00a8);
 			force_clk_ln_hs = (MIPI_INP(ctrl->ctrl_base + 0x00ac)
 					& BIT(28));
-
-			ctrl_reg = MIPI_INP(ctrl->ctrl_base + 0x0004);
-                        ctrl_reg = ctrl_reg >> 4 & 0xF;
-                        pr_debug("%s: lane_config: 0x%x\n", __func__, ctrl_reg);	     
+			pr_debug("%s: lane_status: 0x%x\n",
+				       __func__, ln_status);
 			if (ctrl->recovery
 					&& !(force_clk_ln_hs)
 					&& (ln_status
-						& ctrl_reg)
+						& DSI_DATA_LANES_STOP_STATE)
 					&& !(ln_status
 						& DSI_CLK_LANE_STOP_STATE)) {
 				pr_debug("%s: Handling overflow event.\n",
