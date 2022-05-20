@@ -1,3 +1,7 @@
+#ifdef CONFIG_VIVO_CAMERA_51
+#include <media/msm_camsensor_sdk_vivo_51.h>
+#else
+
 #ifndef __LINUX_MSM_CAMSENSOR_SDK_H
 #define __LINUX_MSM_CAMSENSOR_SDK_H
 
@@ -331,4 +335,5 @@ struct msm_camera_i2c_reg_setting_array {
 	enum msm_camera_i2c_data_type data_type;
 	uint16_t delay;
 };
+#endif /* __LINUX_MSM_CAM_SENSOR_H */
 #endif /* __LINUX_MSM_CAM_SENSOR_H */
