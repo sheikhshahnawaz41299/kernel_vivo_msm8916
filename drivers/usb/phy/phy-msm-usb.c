@@ -92,9 +92,6 @@
 #define USB_SUSPEND_DELAY_TIME	(500 * HZ/1000) /* 500 msec */
 
 #define USB_DEFAULT_SYSTEM_CLOCK 80000000	/* 80 MHz */
-#ifdef CONFIG_MACH_VIVO
-#define OTG_DISABLE_DELAY_TIME  (300000*HZ/1000) /*5 min*/
-#endif
 
 enum msm_otg_phy_reg_mode {
 	USB_PHY_REG_OFF,
@@ -139,10 +136,6 @@ static struct regulator *hsusb_vdd;
 static struct regulator *vbus_otg;
 static struct regulator *mhl_usb_hs_switch;
 static struct power_supply *psy;
-#ifdef CONFIG_MACH_VIVO
-//add by wutianwen for disable_timer
-static struct timer_list otg_disable_timer;
-#endif
 
 static bool aca_id_turned_on;
 static bool legacy_power_supply;
@@ -4379,12 +4372,8 @@ static void msm_id_status_w(struct work_struct *w)
 		id_state = motg->id_pin_state;
 		if(id_state){
 			//wake_unlock(&motg->switchlock);
-			mod_timer(&otg_disable_timer,jiffies + OTG_DISABLE_DELAY_TIME);
-			printk("usb20_host add_timer \n");
 		} else {
 			//wake_lock(&motg->switchlock);
-			del_timer_sync(&otg_disable_timer);
-			printk("usb20_host del_timer \n");
 		}
 	}
 #endif
@@ -5683,18 +5672,6 @@ static ssize_t otg_host_mode_enable_show(struct device *dev,
 }
 
 
-static void otg_disable_func(unsigned long data){
-	struct msm_otg *motg = (struct msm_otg *) data;
-	struct msm_otg_platform_data *pdata = motg->pdata;
-	//host_mode_enable(motg,false);
-	host_mode_enabled = false;
-	set_bit(ID, &motg->inputs);
-	if (motg->pdata->usbid_adc_used)
-		gpio_direction_output(pdata->usbid_adc_volt_gpio,0);
-	if(wake_lock_active(&motg->switchlock))
-		wake_unlock(&motg->switchlock);
-	printk("add otg_disable_func work! \n");
-}
 static void host_mode_enable(struct msm_otg *motg,bool enabled)
 {
 	struct usb_phy *phy;
@@ -5718,21 +5695,11 @@ static void host_mode_enable(struct msm_otg *motg,bool enabled)
 				motg->id_state_error = false;
 				schedule_delayed_work(&motg->usbid_adc_work,msecs_to_jiffies(300));
 				gpio_direction_output(pdata->usbid_adc_volt_gpio,1);
-				//add by wutianwen init otg_switch_disable_timer
-				init_timer(&otg_disable_timer);
-				otg_disable_timer.expires = jiffies + OTG_DISABLE_DELAY_TIME;
-				otg_disable_timer.function = otg_disable_func;
-				otg_disable_timer.data = (unsigned long)motg;
-				//add end
-				add_timer(&otg_disable_timer);
-				printk("usb phy otg init otg_switch_disable_timer \n");
 				}
 		}else{
 			if (motg->pdata->usbid_adc_used){
 				motg->id_pin_state = true;
 				cancel_delayed_work_sync(&motg->usbid_adc_work);
-				del_timer_sync(&otg_disable_timer);
-				printk("usb phy otg del otg_switch_disable_timer \n");
 				
 				if(wake_lock_active(&motg->switchlock))
 					wake_unlock(&motg->switchlock);
