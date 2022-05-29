@@ -32,9 +32,46 @@
 #define NT35596_BUF_4_STATUS 0x40
 #define NT35596_BUF_5_STATUS 0x80
 #define NT35596_MAX_ERR_CNT 2
-
+#ifdef CONFIG_MACH_VIVO
+#define MIN_REFRESH_RATE 30
+#else
 #define MIN_REFRESH_RATE 48
+#endif
 #define DEFAULT_MDP_TRANSFER_TIME 14000
+#ifdef CONFIG_MACH_VIVO
+int vivo_esd_check_ps_status = 0;
+int vivo_esd_check_enable_status=0;
+
+int panel_id=0;
+/* AT mode */
+extern unsigned int is_atboot;
+char project_name[MDSS_MAX_PANEL_LEN];
+extern unsigned int power_off_charging_mode;
+ int pre_bkg_level=300;
+struct mdss_dsi_ctrl_pdata *g_ctrl_pdata;////add for spot backlight
+
+static int LV52207_level_map_pd1422F_ex[256]={
+0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,
+12,12,13,13,14,14,15,15,16,16,17,17,18,18,19,
+19,20,20,21,21,22,22,23,23,24,24,25,25,26,26,
+27,27,28,28,29,29,30,30,31,31,32,32,33,33,34,
+34,35,35,36,36,37,37,38,38,39,39,40,40,41,41,
+42,42,43,43,44,44,45,45,46,46,47,47,48,49,50,
+51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,
+66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,
+81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,
+96,97,98,99,100,101,102,103,104,105,106,107,
+108,109,110,111,112,113,114,115,116,117,118,
+119,120,121,122,123,124,125,126,127,128,129,
+130,131,132,133,134,135,137,139,141,143,145,
+147,149,151,153,155,157,159,161,163,165,167,
+169,171,173,175,177,179,181,183,185,187,189,
+191,193,195,197,199,201,203,205,207,209,211,
+213,215,217,219,221,223,225,227,229,231,233,
+235,237,239,241,243,245
+	};
+#endif
 
 #ifdef CONFIG_MACH_T86519A1
 #define TPS65132_GPIO_POS_EN 902
@@ -55,7 +92,9 @@ void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 	ctrl->pwm_enabled = 0;
 }
-
+#ifdef CONFIG_MACH_VIVO
+static int pre_level=1;
+#endif
 static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
 	int ret;
@@ -75,10 +114,20 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 				pr_err("%s: pwm_config_us() failed err=%d.\n",
 						__func__, ret);
 			pwm_disable(ctrl->pwm_bl);
+#ifdef CONFIG_MACH_VIVO
+			pr_err("%s: close PWM \n", __func__);
+#endif
 		}
 		ctrl->pwm_enabled = 0;
+#ifdef CONFIG_MACH_VIVO
+		pre_level =level;
+#endif
 		return;
 	}
+#ifdef CONFIG_MACH_VIVO
+       if(pre_level==0&&level>0)
+	   	pr_err("%s: open PWM \n", __func__);
+#endif
 
 	duty = level * ctrl->pwm_period;
 	duty /= ctrl->bklt_max;
@@ -116,6 +165,9 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 				ret);
 		ctrl->pwm_enabled = 1;
 	}
+#ifdef CONFIG_MACH_VIVO
+	pre_level =level;
+#endif
 }
 
 static char dcs_cmd[2] = {0x54, 0x00}; /* DTYPE_DCS_READ */
@@ -257,6 +309,31 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
+#ifdef CONFIG_MACH_VIVO
+	// add AVDD/AVEE enable control IO
+	if(ctrl_pdata->double_enable_gpio){
+		//enp for AVDD
+		if (gpio_is_valid(ctrl_pdata->disp_enp_gpio)) {
+			rc = gpio_request(ctrl_pdata->disp_enp_gpio,
+						"disp_enp_enable");
+			if (rc) {
+				pr_err("request disp_enp gpio failed, rc=%d\n",
+				       rc);
+				goto disp_en_gpio_err;
+			}
+		}
+		//enn for AVEE
+		if (gpio_is_valid(ctrl_pdata->disp_enn_gpio)) {
+			rc = gpio_request(ctrl_pdata->disp_enn_gpio,
+							"disp_enn_enable");
+			if (rc) {
+				pr_err("request disp_enn gpio failed, rc=%d\n",
+				       rc);
+				goto disp_enn_gpio_err;
+			}
+		}
+	}else {
+#endif
 
 	if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		rc = gpio_request(ctrl_pdata->disp_en_gpio,
@@ -267,6 +344,9 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			goto disp_en_gpio_err;
 		}
 	}
+#ifdef CONFIG_MACH_VIVO
+	}
+#endif
 	rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
 	if (rc) {
 		pr_err("request reset gpio failed, rc=%d\n",
@@ -298,8 +378,25 @@ mode_gpio_err:
 bklt_en_gpio_err:
 	gpio_free(ctrl_pdata->rst_gpio);
 rst_gpio_err:
+#ifdef CONFIG_MACH_VIVO
+	if(ctrl_pdata->double_enable_gpio){
+		if (gpio_is_valid(ctrl_pdata->disp_enn_gpio))
+			gpio_free(ctrl_pdata->disp_enn_gpio);
+	}else{
+#endif
 	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 		gpio_free(ctrl_pdata->disp_en_gpio);
+#ifdef CONFIG_MACH_VIVO
+	}
+#endif
+#ifdef CONFIG_MACH_VIVO
+disp_enn_gpio_err:
+	if(ctrl_pdata->double_enable_gpio){
+		if (gpio_is_valid(ctrl_pdata->disp_enp_gpio))
+			gpio_free(ctrl_pdata->disp_enp_gpio);
+	}
+#endif
+
 disp_en_gpio_err:
 	return rc;
 }
@@ -317,11 +414,27 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+#ifdef CONFIG_MACH_VIVO
+	if(ctrl_pdata->double_enable_gpio){
+		if (!gpio_is_valid(ctrl_pdata->disp_enp_gpio)) {
+			pr_debug("%s:%d, disp_enp_gpio line not configured\n",
+				__func__, __LINE__);
+		}
+		if (!gpio_is_valid(ctrl_pdata->disp_enn_gpio)) {
+			pr_debug("%s:%d, disp_enn_gpio line not configured\n",
+				__func__, __LINE__);
+		}
+	}
+	else{
+#endif
 
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
 	}
+#ifdef CONFIG_MACH_VIVO
+	}
+#endif
 
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
@@ -339,8 +452,22 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			return rc;
 		}
 		if (!pinfo->cont_splash_enabled) {
+#ifdef CONFIG_MACH_VIVO
+			//add for enn and enp contrl
+			if(ctrl_pdata->double_enable_gpio){
+				if (gpio_is_valid(ctrl_pdata->disp_enp_gpio))
+					gpio_set_value((ctrl_pdata->disp_enp_gpio), 1);
+				mdelay(12);
+				if (gpio_is_valid(ctrl_pdata->disp_enn_gpio))
+					gpio_set_value((ctrl_pdata->disp_enn_gpio), 1);
+			}else{
+#endif
 			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+#ifdef CONFIG_MACH_VIVO
+			}
+			mdelay(20);
+#endif
 
 			for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
 				gpio_set_value((ctrl_pdata->rst_gpio),
@@ -370,10 +497,30 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->bklt_en_gpio), 0);
 			gpio_free(ctrl_pdata->bklt_en_gpio);
 		}
+#ifdef CONFIG_MACH_VIVO
+		mdelay(100);
+		
+		if(ctrl_pdata->double_enable_gpio){			
+			if (gpio_is_valid(ctrl_pdata->disp_enn_gpio)) {
+				gpio_set_value((ctrl_pdata->disp_enn_gpio), 0);
+				gpio_free(ctrl_pdata->disp_enn_gpio);
+			}
+			mdelay(5);
+			if (gpio_is_valid(ctrl_pdata->disp_enp_gpio)) {
+				gpio_set_value((ctrl_pdata->disp_enp_gpio), 0);
+				gpio_free(ctrl_pdata->disp_enp_gpio);
+			}
+		}
+		else{
+#endif
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
+#ifdef CONFIG_MACH_VIVO
+
+		}
+#endif
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 		gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))
@@ -588,6 +735,9 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+#ifdef CONFIG_MACH_VIVO
+	int level=bl_level;
+#endif
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -611,13 +761,20 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 		led_trigger_event(bl_led_trigger, bl_level);
 		break;
 	case BL_PWM:
+#ifdef CONFIG_MACH_VIVO
+		 bl_level = LV52207_level_map_pd1422F_ex[level];
+			
+		pr_err("backlight level is %d,after map is %d\n", level,bl_level);
+#endif
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
 		break;
 	case BL_DCS_CMD:
+#ifndef CONFIG_MACH_VIVO
 		if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {
 			mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
 			break;
 		}
+#endif
 		/*
 		 * DCS commands to update backlight are usually sent at
 		 * the same time to both the controllers. However, if
@@ -626,6 +783,12 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 		 * controller so that when the commands are triggered,
 		 * both controllers receive it at the same time.
 		 */
+#ifdef CONFIG_MACH_VIVO
+		if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {
+			mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
+			break;
+		}
+#endif
 		sctrl = mdss_dsi_get_other_ctrl(ctrl_pdata);
 		if (mdss_dsi_sync_wait_trigger(ctrl_pdata)) {
 			if (sctrl)
@@ -1367,6 +1530,10 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 		(pinfo->ulps_feature_enabled ? "enabled" : "disabled"));
 	pinfo->esd_check_enabled = of_property_read_bool(np,
 		"qcom,esd-check-enabled");
+#ifdef CONFIG_MACH_VIVO
+       if(pinfo->esd_check_enabled)
+       	vivo_esd_check_enable_status= 1;
+#endif
 
 	pinfo->ulps_suspend_enabled = of_property_read_bool(np,
 		"qcom,suspend-ulps-enabled");
@@ -1397,6 +1564,9 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 	if (pinfo->panel_ack_disabled && pinfo->esd_check_enabled) {
 		pr_warn("ESD should not be enabled if panel ACK is disabled\n");
 		pinfo->esd_check_enabled = false;
+#ifdef CONFIG_MACH_VIVO
+		vivo_esd_check_enable_status= 0;
+#endif
 	}
 
 	if (ctrl->disp_en_gpio <= 0) {
@@ -1693,6 +1863,14 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		return -EINVAL;
 	}
 	pinfo->yres = (!rc ? tmp : 480);
+#ifdef CONFIG_MACH_VIVO
+	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-id", &panel_id); 
+    if (rc) {
+		pr_err("%s:%d panel id dt parse failed\n", __func__, __LINE__);
+	}
+	else
+		pr_info("%s: Panel ID = %d\n", __func__, panel_id);
+#endif
 
 	rc = of_property_read_u32(np,
 		"qcom,mdss-pan-physical-width-dimension", &tmp);
@@ -2075,13 +2253,125 @@ static int mdss_panel_parse_dt(struct device_node *np,
 error:
 	return -EINVAL;
 }
+#ifdef CONFIG_MACH_VIVO
+static int creat_lcm_id = 0;
+static struct kobject disp_kobject;
+static ssize_t lcm_id_show(struct kobject *kobj,
+						struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%02x\n", panel_id);
+}
+static struct kobj_attribute lcm_id_attribute =
+__ATTR(lcm_id, 0444, lcm_id_show, NULL);
+static ssize_t vivo_esd_check_show(struct kobject *kobj,// show oled acl mode state
+						struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%02x\n", vivo_esd_check_ps_status);
+}
+static ssize_t vivo_esd_check_store(struct kobject *kobj,
+						struct kobj_attribute *attr, const char *buf, size_t count)
+{
+    int ret, temp;
+    ret = kstrtoint(buf, 10, &temp);
+    if (ret) {
+		pr_err("Invalid input for lcm cali\n");
+		//return -EINVAL;
+	}
+    vivo_esd_check_ps_status = temp;
+	return count;
+}
+static struct kobj_attribute vivo_esd_check_attribute =
+__ATTR(vivo_esd_check_ps, 0666, vivo_esd_check_show, vivo_esd_check_store);
 
+static ssize_t vivo_esd_check_enable_show(struct kobject *kobj,
+						struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d", vivo_esd_check_enable_status);
+}
+
+static ssize_t vivo_esd_check_enable_store(struct kobject *kobj,
+						struct kobj_attribute *attr, const char *buf, size_t count)
+{
+    int ret, temp;
+    ret = kstrtoint(buf, 10, &temp);
+    if (ret) {
+		pr_err("Invalid input for lcm cali\n");
+		//return -EINVAL;
+	}
+    vivo_esd_check_enable_status = temp;
+	return count;
+}
+static struct kobj_attribute vivo_esd_check_enable_attribute =
+__ATTR(vivo_esd_check_enable, 0666, vivo_esd_check_enable_show, vivo_esd_check_enable_store);
+
+static struct attribute *disp_lcm_sys_attrs[] = {
+	&lcm_id_attribute.attr,	
+       &vivo_esd_check_enable_attribute.attr,
+	&vivo_esd_check_attribute.attr,	
+	NULL
+};
+static ssize_t disp_lcm_object_show(struct kobject *k, struct attribute *attr, char *buf)
+{
+	struct kobj_attribute *kobj_attr;
+	int ret = -EIO;
+
+	kobj_attr = container_of(attr, struct kobj_attribute, attr);
+
+	if (kobj_attr->show)
+		ret = kobj_attr->show(k, kobj_attr, buf);
+
+	return ret;
+}
+static ssize_t disp_lcm_object_store(struct kobject *k, struct attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct kobj_attribute *kobj_attr;
+	int ret = -EIO;
+
+	kobj_attr = container_of(attr, struct kobj_attribute, attr);
+
+	if (kobj_attr->store)
+		ret = kobj_attr->store(k, kobj_attr, buf, count);
+
+	return ret;
+}
+static void disp_lcm_object_release(struct kobject *kobj)
+{
+	/* nothing to do temply */
+	return;
+}
+static const struct sysfs_ops disp_lcm_object_sysfs_ops = {
+	.show = disp_lcm_object_show,
+	.store = disp_lcm_object_store,
+};
+static struct kobj_type disp_lcm_object_type = {
+	.sysfs_ops	= &disp_lcm_object_sysfs_ops,
+	.release	= disp_lcm_object_release,
+	.default_attrs = disp_lcm_sys_attrs,
+};
+static int disp_creat_sys_file(void) 
+{ 
+   	memset(&disp_kobject, 0x00, sizeof(disp_kobject));
+
+    if (kobject_init_and_add(&disp_kobject, &disp_lcm_object_type, NULL, "lcm")) {
+        kobject_put(&disp_kobject);
+        return -ENOMEM;
+    }
+    kobject_uevent(&disp_kobject, KOBJ_ADD);
+	creat_lcm_id = 1;
+    return 0;
+}
+#endif
 int mdss_dsi_panel_init(struct device_node *node,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	bool cmd_cfg_cont_splash)
 {
 	int rc = 0;
+#ifndef CONFIG_MACH_VIVO
 	static const char *panel_name;
+#else
+	static const char *panel_name, *project_name_tmp;
+#endif
 	struct mdss_panel_info *pinfo;
 
 	if (!node || !ctrl_pdata) {
@@ -2101,6 +2391,16 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+#ifdef CONFIG_MACH_VIVO
+	project_name_tmp = of_get_property(node, "qcom,mdss-dsi-project-name", NULL);  // add for project Identify
+	if (!project_name_tmp) {
+		pr_info("%s:%d, Project name not specified\n",
+						__func__, __LINE__);
+	}else {
+		strlcpy(&project_name[0], project_name_tmp, MDSS_MAX_PANEL_LEN);
+		pr_info("%s: Project Name = %s\n", __func__, project_name);
+	}
+#endif
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
@@ -2123,6 +2423,11 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->low_power_config = mdss_dsi_panel_low_power_config;
 	ctrl_pdata->panel_data.set_backlight = mdss_dsi_panel_bl_ctrl;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
+#ifdef CONFIG_MACH_VIVO
+	g_ctrl_pdata = ctrl_pdata;
+	if(creat_lcm_id == 0)
+		disp_creat_sys_file(); // add lcm sysfs id interface
+#endif
 
 	return 0;
 }

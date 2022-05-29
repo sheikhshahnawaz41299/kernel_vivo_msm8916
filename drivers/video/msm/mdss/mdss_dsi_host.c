@@ -29,6 +29,9 @@
 #include "mdss_debug.h"
 
 #define VSYNC_PERIOD 17
+#ifdef CONFIG_MACH_VIVO
+extern unsigned int is_atboot;
+#endif
 #define DMA_TX_TIMEOUT 200
 #define DMA_TPG_FIFO_LEN 64
 
