@@ -20,4 +20,10 @@ config SWITCH_ARIZONA
 	  with Wolfson Arizona devices. These are audio CODECs with
 	  advanced audio accessory detection support.
 
+config BBK_SWITCH_GSENSOR_INT1
+	tristate "GPIO Swith gsensor interrupt1"
+	depends on GPIOLIB
+	help
+	  Say Y here to enable GPIO based switch support.
+
 endif # SWITCH
