@@ -149,6 +149,10 @@ static void i2c_msm_qup_fifo_calc_size(struct i2c_msm_ctrl *ctrl)
 			fifo->input_fifo_sz, fifo->output_fifo_sz);
 
 }
+#ifdef CONFIG_MACH_VIVO
+int qup_i2c_suspended = 0;  
+EXPORT_SYMBOL_GPL(qup_i2c_suspended);
+#endif
 
 /*
  * i2c_msm_tag_byte: accessor for tag as four bytes array
@@ -2724,6 +2728,9 @@ static int i2c_msm_pm_sys_suspend_noirq(struct device *dev)
 		pm_runtime_set_suspended(dev);
 		pm_runtime_enable(dev);
 	}
+#ifdef CONFIG_MACH_VIVO
+	qup_i2c_suspended = 1;
+#endif
 
 	return ret;
 }
@@ -2739,6 +2746,9 @@ static int i2c_msm_pm_sys_resume_noirq(struct device *dev)
 	mutex_lock(&ctrl->xfer.mtx);
 	ctrl->pwr_state = I2C_MSM_PM_RT_SUSPENDED;
 	mutex_unlock(&ctrl->xfer.mtx);
+#ifdef CONFIG_MACH_VIVO
+	qup_i2c_suspended = 0;
+#endif
 	return  0;
 }
 #endif
