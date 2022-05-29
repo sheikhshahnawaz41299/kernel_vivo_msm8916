@@ -21,6 +21,10 @@
 #include <linux/gpio.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_MACH_VIVO
+#include <linux/pm_qos.h>////lrz add
+#endif
+
 #include <linux/leds-qpnp-wled.h>
 #include <linux/clk.h>
 
@@ -31,6 +35,34 @@
 #include "mdss_livedisplay.h"
 
 #define XO_CLK_RATE	19200000
+#ifdef CONFIG_MACH_VIVO
+/* AT mode */
+static unsigned int is_atboot;
+
+#define DSI_DISABLE_PC_LATENCY 100
+#define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
+
+static struct pm_qos_request mdss_dsi_pm_qos_request;
+static void mdss_dsi_pm_qos_add_request(void)
+{
+	pr_debug("%s: add request",__func__);
+	pm_qos_add_request(&mdss_dsi_pm_qos_request, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
+}
+
+static void mdss_dsi_pm_qos_remove_request(void)
+{
+	pr_debug("%s: remove request",__func__);
+	pm_qos_remove_request(&mdss_dsi_pm_qos_request);
+}
+
+static void mdss_dsi_pm_qos_update_request(int val)
+{
+	pr_debug("%s: update request %d",__func__,val);
+	pm_qos_update_request(&mdss_dsi_pm_qos_request, val);
+}
+#endif
+
 
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
@@ -703,7 +735,9 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 	mipi  = &pdata->panel_info.mipi;
-
+#ifdef CONFIG_MACH_VIVO
+	mdss_dsi_pm_qos_update_request(DSI_DISABLE_PC_LATENCY);//lrz add
+#endif
 	pr_debug("%s+: ctrl=%pK ndx=%d cur_blank_state=%d\n", __func__,
 		ctrl_pdata, ctrl_pdata->ndx, pdata->panel_info.blank_state);
 
@@ -740,6 +774,9 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 
 error:
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+#ifdef CONFIG_MACH_VIVO
+	mdss_dsi_pm_qos_update_request(DSI_ENABLE_PC_LATENCY);
+#endif
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -1608,6 +1645,9 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		}
 		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
+#ifdef CONFIG_MACH_VIVO
+	mdss_dsi_pm_qos_add_request();
+#endif
 	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
 	return 0;
 
@@ -1635,6 +1675,9 @@ static int mdss_dsi_ctrl_remove(struct platform_device *pdev)
 		pr_err("%s: no driver data\n", __func__);
 		return -ENODEV;
 	}
+#ifdef CONFIG_MACH_VIVO
+	mdss_dsi_pm_qos_remove_request();
+#endif
 
 	for (i = DSI_MAX_PM - 1; i >= 0; i--) {
 		if (msm_dss_config_vreg(&pdev->dev,
@@ -1861,6 +1904,29 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	 * If disp_en_gpio has been set previously (disp_en_gpio > 0)
 	 *  while parsing the panel node, then do not override it
 	 */
+#ifdef CONFIG_MACH_VIVO
+	ctrl_pdata->double_enable_gpio= of_property_read_bool(ctrl_pdev->dev.of_node,
+				"qcom,platform-enp-enn-gpio");
+  
+	if(ctrl_pdata->double_enable_gpio){
+		ctrl_pdata->disp_enp_gpio = of_get_named_gpio(
+			ctrl_pdev->dev.of_node,
+			"qcom,platform-enable-enp-gpio", 0);
+
+			//enp
+		if (!gpio_is_valid(ctrl_pdata->disp_enp_gpio))
+			pr_err("%s:%d, Disp_enp gpio not specified\n",
+					__func__, __LINE__);
+              //enn
+	       ctrl_pdata->disp_enn_gpio = of_get_named_gpio(
+			ctrl_pdev->dev.of_node,
+			"qcom,platform-enable-enn-gpio", 0);
+
+		if (!gpio_is_valid(ctrl_pdata->disp_enn_gpio))
+			pr_err("%s:%d, Disp_enn gpio not specified\n",
+					__func__, __LINE__);
+	}else{
+#endif
 	if (ctrl_pdata->disp_en_gpio <= 0) {
 		ctrl_pdata->disp_en_gpio = of_get_named_gpio(
 			ctrl_pdev->dev.of_node,
@@ -1870,6 +1936,10 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			pr_err("%s:%d, Disp_en gpio not specified\n",
 					__func__, __LINE__);
 	}
+#ifdef CONFIG_MACH_VIVO
+	}
+#endif
+
 
 	ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 		"qcom,platform-te-gpio", 0);
@@ -1987,6 +2057,10 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			return rc;
 		}
 	}
+#ifdef CONFIG_MACH_VIVO
+	if(is_atboot == 1)
+		pinfo->cont_splash_enabled =  false;
+#endif
 
 	if (pinfo->cont_splash_enabled) {
 		rc = mdss_dsi_panel_power_ctrl(&(ctrl_pdata->panel_data),
