@@ -95,6 +95,10 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-t86519a1.dtb
 endif
 else ifeq ($(CONFIG_MACH_YULONG_MSM8939),y)
 dtb-$(CONFIG_ARCH_MSM8916) += msm8939-cp8675-i01-p0.dtb
+else ifeq ($(CONFIG_MACH_VIVO_MSM8916),y)
+dtb-$(CONFIG_MACH_PD1510) +=  \
+	msm8916-mtp-pd1510f_ex.dtb \
+    msm8916-mtp-pd1510.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8916-cdp-smb1360.dtb \
@@ -144,7 +148,6 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8929-qrd-skulb.dtb \
 	msm8929-cdp-jdi.dtb
 endif
-
 dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	msm8226-fluid.dtb \
 	msm8226-v1-cdp.dtb \
