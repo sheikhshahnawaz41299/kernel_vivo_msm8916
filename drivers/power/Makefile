@@ -62,6 +62,7 @@ else
 obj-$(CONFIG_SMB1360_CHARGER_FG) += smb1360-charger-fg.o
 endif
 obj-$(CONFIG_SMB358_CHARGER)	+= smb358-charger.o
+obj-$(CONFIG_SMB358_CHARGER_VIVO)	+= smb358-charger-vivo.o
 obj-$(CONFIG_BATTERY_BQ28400)	+= bq28400_battery.o
 obj-$(CONFIG_SMB137C_CHARGER)	+= smb137c-charger.o
 obj-$(CONFIG_QPNP_BMS)		+= qpnp-bms.o batterydata-lib.o
