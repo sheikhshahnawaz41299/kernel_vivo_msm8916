@@ -193,8 +193,16 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
+
 #ifdef CONFIG_MACH_YULONG
 	POWER_SUPPLY_PROP_YL_CRTL_CHG_INTERFACE,
+#endif
+
+#ifdef CONFIG_MACH_VIVO
+	POWER_SUPPLY_PROP_DC_RESENT,
+	POWER_SUPPLY_PROP_DC_CUTOFF,
+	POWER_SUPPLY_PROP_CHG_TYPE,
+	POWER_SUPPLY_PROP_RECHARGE_STATE,
 #endif
 };
 
@@ -215,6 +223,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_YL_BATTERY,	/* yulong add for yl_adc_battery */
 #endif
 	POWER_SUPPLY_TYPE_USB_PARALLEL,		/* USB Parallel Path */
+#ifdef CONFIG_MACH_VIVO
+	POWER_SUPPLY_TYPE_USB_FLOATED,/*Floated Charger only for BBK_FOR_NET_ENTRY*/
+#endif
 };
 
 union power_supply_propval {
@@ -226,6 +237,9 @@ union power_supply_propval {
 struct power_supply {
 	const char *name;
 	enum power_supply_type type;
+#ifdef CONFIG_MACH_VIVO
+	enum power_supply_type power_type;
+#endif
 	enum power_supply_property *properties;
 	size_t num_properties;
 
