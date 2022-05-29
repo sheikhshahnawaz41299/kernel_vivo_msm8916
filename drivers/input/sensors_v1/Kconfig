@@ -1,0 +1,73 @@
+#
+#
+# Input misc drivers configuration
+#
+menu "BBK Sensors devices"
+config BBK_SENSORS_V1
+	tristate "BBK Sensors config ..."
+	help
+	  Say Y here, and a list of miscellaneous input drivers will be displayed.
+	  Everything that didn't fit into the other categories is here. This option
+	  doesn't affect the kernel.
+	  If unsure, say Y.
+
+if BBK_SENSORS_V1
+
+config BBK_SENSORS_LIS3DH
+	tristate "ST LIS3DH 3-axis digital acceleromater"
+	depends on I2C
+	help
+	  Say Y here if you want to support STMicroelectronics LIS3DH
+	  accelerometer connected via an I2C bus.
+	  To compile this driver as a module, choose M here: the
+	  module will be called lis3dh_acc.
+	  
+config BBK_SENSORS_MAG_YAS533
+	tristate "Yamaha YAS533 mag Sensor"
+	depends on I2C
+	help
+	  Say Y here if you want to support Yamaha YAS533
+	  connected via an I2C bus.
+	  To compile this driver as a module, choose M here: the
+	  module will be called YAS533.	 
+	  
+config BBK_SENSORS_TMD277X
+	tristate "TAOS TMD277X or AVAGO APDS9930 Digital Proximity, Ambient Light"
+	depends on I2C
+	help
+	  Say Y here if you want to support TMD277X
+	  connected via an I2C bus.
+	  To compile this driver as a module, choose M here: the
+	  module will be called TMD277X.	   
+
+config BBK_SENSORS_MAG_AKM8963
+	tristate "AKM akm8963 mag Sensor"
+	depends on I2C
+	help
+	  Say Y here if you want to support AKM akm8963
+	  connected via an I2C bus.
+	  To compile this driver as a module, choose M here: the
+	  module will be called akm8963.
+
+config BBK_SENSORS_MAG_AKM09912
+	tristate "AKM akm09911 mag Sensor"
+	depends on I2C
+	help
+	  Say Y here if you want to support AKM akm09912
+	  connected via an I2C bus.
+	  To compile this driver as a module, choose M here: the
+	  module will be called akm09912.
+	  
+config BBK_SENSORS_MAG_ALPS007
+	tristate "ALPS ALPS007 mag Sensor"
+	depends on I2C
+	help
+	  Say Y here if you want to support ALPS ALPS007
+	  connected via an I2C bus.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ALPS.	 
+endif
+
+
+
+endmenu
