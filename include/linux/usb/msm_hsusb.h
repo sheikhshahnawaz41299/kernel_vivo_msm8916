@@ -332,9 +332,15 @@ struct msm_otg_platform_data {
 	int switch_sel_gpio;
 	bool phy_dvdd_always_on;
 	struct clk *system_clk;
+
 #ifdef CONFIG_MACH_JALEBI
 	int otg5v_en_gpio;
 	struct otg_pinctrl_res pin_res;
+#endif
+
+#ifdef CONFIG_MACH_VIVO
+	int usbid_adc_volt_gpio;
+	bool usbid_adc_used;
 #endif
 };
 
@@ -503,10 +509,16 @@ struct msm_otg {
 	struct delayed_work chg_work;
 	struct delayed_work id_status_work;
 	struct delayed_work suspend_work;
+#ifdef CONFIG_MACH_VIVO
+	struct delayed_work usbid_adc_work;
+#endif
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	unsigned dcd_time;
 	struct wake_lock wlock;
+#ifdef CONFIG_MACH_VIVO
+	struct wake_lock switchlock;
+#endif
 	struct notifier_block usbdev_nb;
 	unsigned mA_port;
 	struct timer_list id_timer;
@@ -572,6 +584,9 @@ struct msm_otg {
 	struct hrtimer timer;
 	struct power_supply usb_psy;
 	unsigned int online;
+#ifdef CONFIG_MACH_VIVO
+	bool		 vbus_active;
+#endif
 	unsigned int host_mode;
 	unsigned int voltage_max;
 	unsigned int current_max;
@@ -592,6 +607,14 @@ struct msm_otg {
 	bool phy_irq_pending;
 	bool rm_pulldown;
 	wait_queue_head_t	host_suspend_wait;
+#ifdef CONFIG_MACH_VIVO
+	bool id_pin_init_low;
+
+	bool id_pin_state;
+	bool last_id_pin_state;
+	bool id_state_error;
+	bool id_state_change;
+#endif
 /* Maximum debug message length */
 #define DEBUG_MSG_LEN   128UL
 /* Maximum number of messages */
