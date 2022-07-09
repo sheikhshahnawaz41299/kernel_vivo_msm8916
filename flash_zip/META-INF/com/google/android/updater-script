@@ -1,0 +1,40 @@
+ui_print("Los16 Kernel For Vivo Y51");
+
+ui_print("Status  : Extracting flashing tools");
+package_extract_dir("tools", "/tmp");
+set_perm(0, 0, 0777, "/tmp/mkbootimg");
+set_perm(0, 0, 0777, "/tmp/unpackbootimg");
+set_perm(0, 0, 0777, "/tmp/flash_kernel.sh");
+set_progress(0.2);
+
+ui_print("Status  : Building and installing boot image");
+run_program("/tmp/flash_kernel.sh");
+set_progress(0.6);
+
+ui_print("Status  : Cleaning up flashing tools");
+delete("/tmp/boot.img");
+delete("/tmp/mkbootimg");
+delete("/tmp/unpackbootimg");
+delete("/tmp/flash_kernel.sh");
+set_progress(0.7);
+
+ui_print("Mount /System Folder...");
+mount("ext4", "EMMC", "/dev/block/bootdevice/by-name/system", "/system");
+
+ui_print("remove old modules...");
+delete_recursive("/system/lib/modules");
+
+ui_print("Status  : Installing kernel modules");
+
+ui_print("Extracting System Files...");
+package_extract_dir("system", "/system");
+
+ui_print("set module permissions...");
+set_perm_recursive(0, 0, 0755, 0644, "/system/lib/modules");
+
+unmount("/system");
+set_progress(0.9);
+
+ui_print("Status  : Kernel installation completed");
+ui_print("Message : Reboot Mobile");
+set_progress(1.0);
