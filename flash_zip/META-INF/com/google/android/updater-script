@@ -19,7 +19,7 @@ delete("/tmp/flash_kernel.sh");
 set_progress(0.7);
 
 ui_print("Mount /System Folder...");
-run_program("/sbin/busybox", "mount", "/system");
+mount("ext4", "EMMC", "/dev/block/bootdevice/by-name/system", "/system");
 
 ui_print("remove old modules...");
 delete_recursive("/system/lib/modules");
