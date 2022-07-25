@@ -67,7 +67,7 @@ J="-j$(grep -c ^processor /proc/cpuinfo)"
 BUILD_DIR=$KERNEL_DIR/flash_zip
 VERSION="v1"
 DATE=$(date -u +%Y%m%d-%H%M)
-ZIP_NAME=los16-$DEVICE-$VERSION-$DATE
+ZIP_NAME=LOS-18.1-$DEVICE-$VERSION-$DATE
 
 compile_kernel ()
 {
