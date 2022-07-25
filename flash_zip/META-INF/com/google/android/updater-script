@@ -1,4 +1,4 @@
-ui_print("Los16 Kernel For Vivo Y51");
+ui_print("LOS Kernel For Vivo Y51");
 
 ui_print("Status  : Extracting flashing tools");
 package_extract_dir("tools", "/tmp");
