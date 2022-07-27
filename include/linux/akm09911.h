@@ -41,6 +41,10 @@
 #define AK09911_REGS_SIZE		13
 #define AK09911_WIA1_VALUE		0x48
 #define AK09911_WIA2_VALUE		0x05
+#ifdef CONFIG_MACH_VIVO
+#define AKM09911_RETRY_COUNT	10
+#define AKM09911_BUFSIZE		0x20
+#endif
 
 /*** Limit of factory shipment test *******************************************/
 #define TLIMIT_TN_REVISION_09911				""

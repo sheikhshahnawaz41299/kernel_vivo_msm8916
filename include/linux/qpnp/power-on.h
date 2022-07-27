@@ -55,9 +55,18 @@ enum pon_restart_reason {
         PON_RESTART_REASON_DMVERITY_CORRUPTED   = 0x04,
         PON_RESTART_REASON_DMVERITY_ENFORCE     = 0x05,
         PON_RESTART_REASON_KEYS_CLEAR           = 0x06,
+#ifdef CONFIG_MACH_VIVO
+	PON_RESTART_REASON_RECOVERY_SILENT  = 0x07,
+	PON_RESTART_REASON_BOOT_SILENT      = 0x08,
+#endif
 };
 
 #ifdef CONFIG_QPNP_POWER_ON
+#ifdef CONFIG_MACH_VIVO
+/*Begin leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+void qpnp_pon_keyvoldown_ex(int enable);
+/*End leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+#endif
 int qpnp_pon_system_pwr_off(enum pon_power_off_type type);
 int qpnp_pon_is_warm_reset(void);
 int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable);
@@ -66,6 +75,14 @@ int qpnp_pon_set_restart_reason(enum pon_restart_reason reason);
 bool qpnp_pon_check_hard_reset_stored(void);
 
 #else
+#ifdef CONFIG_MACH_VIVO
+/*Begin leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+void qpnp_pon_keyvoldown_ex(int enable)
+{
+    return ;
+}
+/*End leiweiqiang add the key_voldown set dloadmode to debug 2016-01-16*/
+#endif
 static int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 {
 	return -ENODEV;
