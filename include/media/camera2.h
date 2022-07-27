@@ -10,6 +10,10 @@
  * GNU General Public License for more details.
  *
  */
+ 
+#ifdef CONFIG_VIVO_CAMERA_51
+#include <media/camera2_vivo_51.h>
+#else
 
 #ifndef __CAMERA2_H__
 #define __CAMERA2_H__
@@ -168,4 +172,5 @@ struct msm_eeprom_board_info {
 	struct msm_eeprom_cmm_t cmm_data;
 };
 
+#endif
 #endif

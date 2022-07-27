@@ -1,3 +1,7 @@
+#ifdef CONFIG_VIVO_CAMERA_51
+#include <media/msmb_camera_vivo_51.h>
+#else
+
 #ifndef __LINUX_MSMB_CAMERA_H
 #define __LINUX_MSMB_CAMERA_H
 
@@ -201,4 +205,5 @@ struct msm_camera_smmu_attach_type {
 	enum smmu_attach_mode attach;
 };
 
+#endif /* __LINUX_MSMB_CAMERA_H */
 #endif /* __LINUX_MSMB_CAMERA_H */

@@ -1,3 +1,7 @@
+#ifdef CONFIG_VIVO_CAMERA_51
+#include <media/msmb_ispif_vivo_51.h>
+#else
+
 #ifndef MSM_CAM_ISPIF_H
 #define MSM_CAM_ISPIF_H
 
@@ -123,4 +127,5 @@ struct ispif_cfg_data {
 #define VIDIOC_MSM_ISPIF_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct ispif_cfg_data)
 
+#endif /* MSM_CAM_ISPIF_H */
 #endif /* MSM_CAM_ISPIF_H */
