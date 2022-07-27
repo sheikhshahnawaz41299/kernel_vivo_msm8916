@@ -161,6 +161,17 @@ struct hpf_work {
 	u8 tx_hpf_cut_of_freq;
 	struct delayed_work dwork;
 };
+#ifdef CONFIG_MACH_VIVO
+
+/* YDA145 */
+enum {
+	YDA145_OFF = 0,
+	YDA145_ON,
+};
+
+struct yda_stuc *vivo_yda_priv;
+/* end */
+#endif
 
 static struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 
@@ -2452,7 +2463,55 @@ static int msm8x16_wcd_put_iir_band_audio_mixer(
 		get_iir_band_coeff(codec, iir_idx, band_idx, 4));
 	return 0;
 }
+#ifdef CONFIG_MACH_VIVO
+/* YDA 145 */
+static int wcd_spk_boost_yda145_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct yda_stuc *yda145 = vivo_yda_priv;
 
+	if ( yda145 == NULL)
+	{
+		return 0;
+	}
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+
+		yda145->speaker_set_on = YDA145_OFF;
+		pr_info("%s:  yda145 set Off \n",__func__ );
+		break;
+	case 1:
+
+		yda145->speaker_set_on = YDA145_ON;
+		pr_info("%s: yda145 set On \n",__func__ );
+
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+static int wcd_spk_boost_yda145_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct yda_stuc *yda145 = vivo_yda_priv;
+	
+	if ( yda145 == NULL)
+	{
+		pr_info("%s: yda_stuc is NULL \n", __func__);
+		return 0;
+	}
+
+	ucontrol->value.integer.value[0] = yda145->speaker_set_on;
+	
+	pr_info("%s: yda145 set %s \n", __func__, 
+			yda145->speaker_set_on?"On":"Off");
+
+	return 0;
+}
+/* end */
+#endif
 static const char * const msm8x16_wcd_loopback_mode_ctrl_text[] = {
 		"DISABLE", "ENABLE"};
 static const struct soc_enum msm8x16_wcd_loopback_mode_ctl_enum[] = {
@@ -2496,7 +2555,15 @@ static const char * const msm8x16_wcd_ext_spk_boost_ctrl_text[] = {
 static const struct soc_enum msm8x16_wcd_ext_spk_boost_ctl_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_ext_spk_boost_ctrl_text),
 };
-
+#ifdef CONFIG_MACH_VIVO
+/* YDA 145 */
+static const char * const msm8x16_wcd_yda145_boost_ctrl_text[] = {
+		"DISABLE", "ENABLE"};
+static const struct soc_enum msm8x16_wcd_yda145_boost_ctrl_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_yda145_boost_ctrl_text),
+};
+/* end */
+#endif
 /*cut of frequency for high pass filter*/
 static const char * const cf_text[] = {
 	"MIN_3DB_4Hz", "MIN_3DB_75Hz", "MIN_3DB_150Hz"
@@ -2539,6 +2606,12 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 #ifdef CONFIG_MACH_JALEBI
 	SOC_ENUM_EXT("Speaker Ext", msm8x16_wcd_ext_spk_ctl_enum[0],
 		msm8x16_wcd_ext_spk_get, msm8x16_wcd_ext_spk_set),
+#endif
+#ifdef CONFIG_MACH_VIVO
+	/* YDA 145 */
+	SOC_ENUM_EXT("Speaker Yda145", msm8x16_wcd_yda145_boost_ctrl_enum[0],
+		wcd_spk_boost_yda145_get, wcd_spk_boost_yda145_set),
+	/* end */
 #endif
 	SOC_SINGLE_TLV("ADC1 Volume", MSM8X16_WCD_A_ANALOG_TX_1_EN, 3,
 					8, 0, analog_gain),
@@ -4563,6 +4636,13 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 	u16 tx_vol_ctl_reg = 0;
 	u8 decimator = 0, i;
 	struct msm8x16_wcd_priv *msm8x16_wcd;
+#ifdef CONFIG_MACH_VIVO
+	/* Yda145 */
+	struct yda_stuc *yda145 = vivo_yda_priv;
+	int dspeaker;
+	/* end */
+#endif
+
 
 	pr_debug("%s: Digital Mute val = %d\n", __func__, mute);
 
@@ -4576,7 +4656,11 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 	if ((dai->id != AIF1_CAP) && (dai->id != AIF2_VIFEED)) {
 		dev_dbg(codec->dev, "%s: Not capture use case skip\n",
 		__func__);
+#ifdef CONFIG_MACH_VIVO
+		goto yda145_exit;
+#else
 		return 0;
+#endif
 	}
 
 	mute = (mute) ? 1 : 0;
@@ -4602,6 +4686,47 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 		decimator = 0;
 	}
 	return 0;
+#ifdef CONFIG_MACH_VIVO
+	/* Yda145 */
+yda145_exit:
+
+	if ( yda145 == NULL)
+		return 0;
+
+	pr_info("%s: yda145 enter\n", __func__);
+
+	dspeaker = !(yda145->num_of_pa - 2);
+
+	if (mute)
+	{
+		gpio_direction_output(yda145->data[0].ctrl_a_gpio,0);
+		gpio_direction_output(yda145->data[0].ctrl_b_gpio,0);
+		if (dspeaker){
+			gpio_direction_output(yda145->data[1].ctrl_a_gpio,0);
+			gpio_direction_output(yda145->data[1].ctrl_b_gpio,0);
+		}
+		pr_info("%s: yda145 power off\n", __func__);
+
+	} else {
+	
+		if (yda145->speaker_set_on == YDA145_OFF)
+			return 0;
+		
+		gpio_direction_output(yda145->data[0].ctrl_a_gpio,1);
+		gpio_direction_output(yda145->data[0].ctrl_b_gpio,1);
+		if (dspeaker)
+		{
+			gpio_direction_output(yda145->data[1].ctrl_a_gpio,1);
+			gpio_direction_output(yda145->data[1].ctrl_b_gpio,1);
+		}
+		msleep(40);
+
+		pr_info("%s: yda145 power on\n", __func__);
+
+	}
+	/*  end  */
+	return 0;
+#endif
 }
 
 static struct snd_soc_dai_ops msm8x16_wcd_dai_ops = {
@@ -5879,7 +6004,87 @@ static int msm8x16_wcd_device_init(struct msm8x16_wcd *msm8x16)
 	mutex_init(&msm8x16->io_lock);
 	return 0;
 }
+#ifdef CONFIG_MACH_VIVO
+/*  YDA 145  */
+static int msm8x16_wcd_get_gpio(struct device_node	*of_node,
+			const char *prop)
+{
+	unsigned int gpio = -1;
+	int ret = 0;
 
+	gpio = of_get_named_gpio(of_node, prop, 0);
+	pr_info("%s: yda145 gpio %d \n", __func__, gpio);
+	ret=gpio_request(gpio, prop);
+	if (ret < 0) {
+		gpio = -1;
+		pr_err(" %s gpio_request fail\n", prop);
+	}
+    ret = gpio_direction_output(gpio, 0);
+	if (ret < 0) {
+		pr_err("set %s gpio output fail\n", prop);
+	}
+	return gpio;
+}
+
+static void msm8x16_wcd_get_yda145(struct device_node	*of_node)
+{
+	struct yda_stuc *yda_priv = NULL;
+	struct yda_data yda_temp;
+	int ret,num;
+	
+	ret = of_property_read_u32(of_node, "vivo,yda145-num", &num);
+	if (ret)
+		goto exit;
+	
+	yda_priv = kzalloc(sizeof(struct yda_stuc), GFP_KERNEL);
+	if (yda_priv == NULL) {
+		pr_err("%s: error, allocation failed\n", __func__);
+		goto exit;
+	}
+
+	switch( num){
+	case 2:
+		yda_temp.ctrl_a_gpio = msm8x16_wcd_get_gpio(of_node, 
+				"vivo,yda145-ctrl-ra-gpio");
+		yda_temp.ctrl_b_gpio = msm8x16_wcd_get_gpio(of_node, 
+				"vivo,yda145-ctrl-rb-gpio");
+		if (yda_temp.ctrl_a_gpio <0||yda_temp.ctrl_a_gpio <0)
+		{
+			pr_err("%s:get yda145 r_channel error\n",__func__);
+			goto err_exit;
+		}else
+			yda_priv->data[1] = yda_temp;
+		/* donot break */
+	case 1:
+		yda_temp.ctrl_a_gpio = msm8x16_wcd_get_gpio(of_node, 
+				"vivo,yda145-ctrl-la-gpio");
+		yda_temp.ctrl_b_gpio = msm8x16_wcd_get_gpio(of_node, 
+				"vivo,yda145-ctrl-lb-gpio");
+		if (yda_temp.ctrl_a_gpio <0||yda_temp.ctrl_a_gpio <0)
+		{
+			pr_err("%s:get yda145 l_channel error\n",__func__);
+			goto err_exit;
+		}else
+			yda_priv->data[0] = yda_temp;
+		break;
+	default:
+		goto err_exit;
+	}
+	
+	yda_priv->num_of_pa = num;
+	yda_priv->speaker_set_on = YDA145_OFF;
+	pr_info("%s: vivo,yda145 gpio request successful \n", __func__);
+	pr_info("%s: vivo,yda145 %d speaker(s) \n", __func__, num);
+	goto exit;
+	
+err_exit:
+	kfree(yda_priv);
+	yda_priv = NULL;
+exit:
+	vivo_yda_priv = yda_priv;
+}
+/* end */
+#endif
 static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 {
 	int ret = 0;
@@ -5943,6 +6148,10 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 			__func__);
 		pdata = msm8x16_wcd_populate_dt_pdata(&spmi->dev);
 		spmi->dev.platform_data = pdata;
+#ifdef CONFIG_MACH_VIVO
+		msm8x16_wcd_get_yda145(spmi->dev.of_node); /* YDA 145 */
+#endif
+
 	} else {
 		dev_dbg(&spmi->dev, "%s:Platform data from board file\n",
 			__func__);

@@ -321,4 +321,25 @@ extern void msm8x16_wcd_spk_ext_pa_cb(
 		int (*codec_spk_ext_pa)(struct snd_soc_codec *codec,
 		int enable), struct snd_soc_codec *codec);
 #endif
+#ifdef CONFIG_MACH_VIVO
 
+/* YDA145 */
+#ifndef MSM8X16_YDA_H
+#define MSM8X16_YDA_H
+
+struct yda_data{
+	unsigned int ctrl_a_gpio;
+	unsigned int ctrl_b_gpio;
+};
+
+struct yda_stuc{
+	int speaker_set_on;
+	int num_of_pa;
+	struct yda_data data[2];
+};
+
+extern struct yda_stuc *vivo_yda_priv;
+
+#endif
+/* end */
+#endif
