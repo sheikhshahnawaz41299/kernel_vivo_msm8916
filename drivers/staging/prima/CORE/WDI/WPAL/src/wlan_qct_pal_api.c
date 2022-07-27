@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012,2014-2015,2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012,2014-2015 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -34,6 +34,9 @@
                
    Definitions for platform Windows.
   
+   Copyright 2010 (c) Qualcomm, Incorporated.  All Rights Reserved.
+   
+   Qualcomm Confidential and Proprietary.
   
   ========================================================================*/
 
@@ -410,7 +413,7 @@ void wpalWlanReload(void)
 void wpalWcnssResetIntr(void)
 {
 #ifdef HAVE_WCNSS_RESET_INTR
-   wcnss_reset_fiq(true);
+   wcnss_reset_intr();
 #endif
    return;
 }
@@ -427,48 +430,6 @@ void wpalWcnssResetIntr(void)
 int wpalWcnssIsProntoHwVer3(void)
 {
    return wcnss_is_hw_pronto_ver3();
-}
-
-/*---------------------------------------------------------------------------
-    wpalIsFwLoggingEnabled -  Check if Firmware will send logs using DXE
-
-    Param:
-       None
-    Return:
-        Check the documentation of vos_is_fw_logging_enabled
----------------------------------------------------------------------------*/
-wpt_uint8 wpalIsFwLoggingEnabled(void)
-{
-  return vos_is_fw_logging_enabled();
-}
-
-/*---------------------------------------------------------------------------
-    wpalIsFwLoggingEnabled -  Check if Firmware will send running
-                              logs using DXE
-
-    Param:
-       None
-    Return:
-        Check the documentation of vos_is_fw_logging_enabled
----------------------------------------------------------------------------*/
-wpt_uint8 wpalIsFwEvLoggingEnabled(void)
-{
-  return vos_is_fw_ev_logging_enabled();
-}
-/*---------------------------------------------------------------------------
-    wpalIsFwLoggingSupported -  Check if Firmware supports the fw->host
-                                logging infrastructure
-                                This API can only be called after fw caps
-                                are exchanged.
-
-    Param:
-       None
-    Return:
-        Check the documentation of vos_is_fw_logging_supported
----------------------------------------------------------------------------*/
-wpt_uint8 wpalIsFwLoggingSupported(void)
-{
-  return vos_is_fw_logging_supported();
 }
 
 /*---------------------------------------------------------------------------
@@ -532,30 +493,3 @@ int  wpalIsSsrPanicOnFailure(void)
    return isSsrPanicOnFailure();
 }
 
-int  wpalGetDxeReplenishRXTimerVal(void)
-{
-   return vos_get_dxeReplenishRXTimerVal();
-}
-
-int  wpalIsDxeSSREnable(void)
-{
-   return vos_get_dxeSSREnable();
-}
-
-bool wpalIsArpPkt(void *pPacket)
-{
-   vos_pkt_t *pkt = (vos_pkt_t*)pPacket;
-
-   if (vos_is_arp_pkt(pkt->pSkb, true))
-   {
-      if (vos_check_arp_req_target_ip(pkt->pSkb, true))
-         return true;
-   }
-
-   return false;
-}
-
-void wpalUpdateTXArpFWdeliveredStats(void)
-{
-   vos_update_arp_fw_tx_delivered();
-}

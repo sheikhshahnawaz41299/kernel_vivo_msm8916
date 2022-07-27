@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -39,6 +39,8 @@ DESCRIPTION
   module.
   
       
+  Copyright (c) 2010 QUALCOMM Incorporated. All Rights Reserved.
+  Qualcomm Confidential and Proprietary
 ===========================================================================*/
 
 
@@ -187,6 +189,7 @@ typedef enum {
     eSAP_ASSOC_STA_CALLBACK_EVENT,  /*Event sent when user called WLANSAP_GetAssocStations */
     eSAP_GET_WPSPBC_SESSION_EVENT,  /* Event send when user call  WLANSAP_getWpsSessionOverlap */  
     eSAP_WPS_PBC_PROBE_REQ_EVENT, /* Event send on WPS PBC probe request is received */
+    eSAP_INDICATE_MGMT_FRAME,
     eSAP_REMAIN_CHAN_READY,
     eSAP_SEND_ACTION_CNF,
     eSAP_DISCONNECT_ALL_P2P_CLIENT,
@@ -285,8 +288,7 @@ typedef struct sap_StationAssocReassocCompleteEvent_s {
     tANI_U32     assocReqLength;
     tANI_U8*     assocReqPtr;
     tANI_U32     assocRespLength;
-    tANI_U8*     assocRespPtr;
-    uint32_t rate_flags;
+    tANI_U8*     assocRespPtr;    
 } tSap_StationAssocReassocCompleteEvent;
 
 typedef struct sap_StationDisassocCompleteEvent_s {
@@ -394,6 +396,7 @@ typedef struct sap_Event_s {
         tSap_AssocStaListEvent                    sapAssocStaListEvent; /*SAP_ASSOC_STA_CALLBACK_EVENT */
         tSap_GetWPSPBCSessionEvent                sapGetWPSPBCSessionEvent; /*SAP_GET_WPSPBC_SESSION_EVENT */
         tSap_WPSPBCProbeReqEvent                  sapPBCProbeReqEvent; /*eSAP_WPS_PBC_PROBE_REQ_EVENT */
+        tSap_ManagementFrameInfo                  sapManagementFrameInfo; /*eSAP_INDICATE_MGMT_FRAME*/
         tSap_SendActionCnf                        sapActionCnf;  /* eSAP_SEND_ACTION_CNF */ 
         tSap_UnknownSTAJoinEvent                  sapUnknownSTAJoin; /* eSAP_UNKNOWN_STA_JOIN */
         tSap_MaxAssocExceededEvent                sapMaxAssocExceeded; /* eSAP_MAX_ASSOC_EXCEEDED */
@@ -427,8 +430,8 @@ typedef struct sap_Config {
     v_U8_t          dtim_period;     /* dtim interval */
     v_U8_t          num_accept_mac;
     v_U8_t          num_deny_mac;
-    /* Max ie length 255 * 2(WPA+RSN) + 2 bytes(vendor specific ID) * 2 */
-    v_U8_t          RSNWPAReqIE[(SIR_MAC_MAX_IE_LENGTH * 2) + 4];
+    v_U8_t          *pRSNWPAReqIE;   //If not null, it has the IE byte stream for RSN /WPA
+
     v_U8_t          countryCode[WNI_CFG_COUNTRY_CODE_LEN];  //it is ignored if [0] is 0.
     v_U8_t          RSNAuthType;
     v_U8_t          RSNEncryptType;
@@ -1002,12 +1005,7 @@ WLANSAP_StopBss
 VOS_STATUS 
 WLANSAP_DisassocSta
 (
-    v_PVOID_t  pvosGCtx,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
-    const v_U8_t *pPeerStaMac
-#else
-    v_U8_t *pPeerStaMac
-#endif
+    v_PVOID_t  pvosGCtx, v_U8_t *pPeerStaMac
 );
 
 /*==========================================================================

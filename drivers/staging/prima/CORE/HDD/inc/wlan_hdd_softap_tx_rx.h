@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -33,6 +33,9 @@
   \file  wlan_hdd_softap_tx_rx.h
   
   \brief Linux HDD SOFTAP Tx/RX APIs
+         Copyright 2008 (c) Qualcomm, Incorporated.
+         All Rights Reserved.
+         Qualcomm Confidential and Proprietary.
   
   ==========================================================================*/
   
@@ -62,17 +65,6 @@
 /*--------------------------------------------------------------------------- 
   Function declarations and documenation
   -------------------------------------------------------------------------*/ 
-
-/**============================================================================
-  @brief hdd_softap_get_connected_sta() - Function to get numbeer of connected
-  stations with softap
-
-  @param pHostapdAdapter      : [in]  pointer to  saftap adapter
-
-  @return         :  Number of connected peer with softap
-  ===========================================================================*/
-
-v_U8_t hdd_softap_get_connected_sta(hdd_adapter_t *pHostapdAdapter);
 
 /**============================================================================
   @brief hdd_softap_hard_start_xmit() - Function registered with the Linux OS for 
@@ -114,7 +106,7 @@ extern struct net_device_stats* hdd_softap_stats(struct net_device *dev);
   @return         : VOS_STATUS_E_FAILURE if any errors encountered 
                   : VOS_STATUS_SUCCESS otherwise
   ===========================================================================*/
-extern VOS_STATUS hdd_softap_init_tx_rx(hdd_adapter_t *pAdapter, bool re_init);
+extern VOS_STATUS hdd_softap_init_tx_rx( hdd_adapter_t *pAdapter );
 
 /**============================================================================
   @brief hdd_softap_deinit_tx_rx() - Deinit function to clean up Tx/RX
@@ -124,8 +116,7 @@ extern VOS_STATUS hdd_softap_init_tx_rx(hdd_adapter_t *pAdapter, bool re_init);
   @return         : VOS_STATUS_E_FAILURE if any errors encountered 
                   : VOS_STATUS_SUCCESS otherwise
   ===========================================================================*/
-extern VOS_STATUS hdd_softap_deinit_tx_rx(hdd_adapter_t *pAdapter,
-                                          bool re_init);
+extern VOS_STATUS hdd_softap_deinit_tx_rx( hdd_adapter_t *pAdapter );
 
 /**============================================================================
   @brief hdd_softap_init_tx_rx_sta() - Init function to initialize a station in Tx/RX
@@ -333,7 +324,7 @@ extern VOS_STATUS hdd_softap_GetConnectedStaId( hdd_adapter_t *pAdapter, v_U8_t 
   @return         : VOS_STATUS_E_FAILURE if any errors encountered
 
   ========================================================================== */
-VOS_STATUS hdd_start_trafficMonitor(hdd_adapter_t *pAdapter, bool re_init);
+VOS_STATUS hdd_start_trafficMonitor( hdd_adapter_t *pAdapter );
 
 /**==========================================================================
 
@@ -345,6 +336,6 @@ VOS_STATUS hdd_start_trafficMonitor(hdd_adapter_t *pAdapter, bool re_init);
   @return         : VOS_STATUS_E_FAILURE if any errors encountered
 
   ========================================================================== */
-VOS_STATUS hdd_stop_trafficMonitor( hdd_adapter_t *pAdapter, bool re_init);
+VOS_STATUS hdd_stop_trafficMonitor( hdd_adapter_t *pAdapter );
 
 #endif    // end #if !defined( WLAN_HDD_SOFTAP_TX_RX_H )

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -158,20 +158,14 @@ WLANSAP_Open
         return VOS_STATUS_E_FAULT;
     }
 
+    vos_mem_zero(pSapCtx, sizeof(tSapContext));
+
     /*------------------------------------------------------------------------
         Clean up SAP control block, initialize all values
     ------------------------------------------------------------------------*/
     VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_INFO_HIGH, "WLANSAP_Open");
 
     WLANSAP_CleanCB(pSapCtx, 0 /*do not empty*/);
-
-    if (!VOS_IS_STATUS_SUCCESS(vos_spin_lock_init(&pSapCtx->staInfo_lock)))
-    {
-        VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR,
-                 "WLANSAP_Start failed init staInfo_lock");
-        vos_free_context(pvosGCtx, VOS_MODULE_ID_SAP, pSapCtx);
-        return VOS_STATUS_E_FAULT;
-    }
 
     // Setup the "link back" to the VOSS context
     pSapCtx->pvosGCtx = pvosGCtx;
@@ -264,6 +258,8 @@ WLANSAP_Start
                  "WLANSAP_Start failed init lock\n");
         return VOS_STATUS_E_FAULT;
     }
+
+
 
     return VOS_STATUS_SUCCESS;
 }/* WLANSAP_Start */
@@ -602,6 +598,9 @@ WLANSAP_StartBss
 
         //Set the BSSID to your "self MAC Addr" read the mac address from Configuation ITEM received from HDD
         pSapCtx->csrRoamProfile.BSSIDs.numOfBSSIDs = 1;
+        vos_mem_copy(pSapCtx->csrRoamProfile.BSSIDs.bssid,
+                     pSapCtx->self_mac_addr,
+                     sizeof( tCsrBssid ) );
 
         //Save a copy to SAP context
         vos_mem_copy(pSapCtx->csrRoamProfile.BSSIDs.bssid,
@@ -1226,11 +1225,7 @@ VOS_STATUS
 WLANSAP_DisassocSta
 (
     v_PVOID_t  pvosGCtx,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
-    const v_U8_t *pPeerStaMac
-#else
     v_U8_t *pPeerStaMac
-#endif
 )
 {
     ptSapContext  pSapCtx = VOS_GET_SAP_CB(pvosGCtx);
@@ -2211,31 +2206,36 @@ VOS_STATUS WLANSAP_CancelRemainOnChannel( v_PVOID_t pvosGCtx )
     v_PVOID_t hHal = NULL;
     eHalStatus halStatus = eHAL_STATUS_FAILURE;
 
-    pSapCtx = VOS_GET_SAP_CB(pvosGCtx);
-    if (NULL == pSapCtx)
+    if( VOS_STA_SAP_MODE == vos_get_conparam ( ) )
     {
-        VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR,
-                "%s: Invalid SAP pointer from pvosGCtx", __func__);
-        return VOS_STATUS_E_FAULT;
-    }
-    hHal = VOS_GET_HAL_CB(pSapCtx->pvosGCtx);
-    if ((NULL == hHal) || (eSAP_TRUE != pSapCtx->isSapSessionOpen))
-    {
-        VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR,
-                "%s: HAL pointer (%p) NULL OR SME session is not open (%d)",
-                __func__, hHal, pSapCtx->isSapSessionOpen );
-        return VOS_STATUS_E_FAULT;
+        pSapCtx = VOS_GET_SAP_CB( pvosGCtx );
+        if (NULL == pSapCtx)
+        {
+            VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR,
+                       "%s: Invalid SAP pointer from pvosGCtx", __func__);
+            return VOS_STATUS_E_FAULT;
+        }
+        hHal = VOS_GET_HAL_CB(pSapCtx->pvosGCtx);
+        if( ( NULL == hHal ) || ( eSAP_TRUE != pSapCtx->isSapSessionOpen ) )
+        {
+            VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR,
+                       "%s: HAL pointer (%p) NULL OR SME session is not open (%d)",
+                       __func__, hHal, pSapCtx->isSapSessionOpen );
+            return VOS_STATUS_E_FAULT;
+        }
+
+        halStatus = sme_CancelRemainOnChannel( hHal, pSapCtx->sessionId );
+
+        if( eHAL_STATUS_SUCCESS == halStatus )
+        {
+            return VOS_STATUS_SUCCESS;
+        }
     }
 
-    halStatus = sme_CancelRemainOnChannel(hHal, pSapCtx->sessionId);
+    VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR,
+                    "Failed to Cancel Remain on Channel");
 
-    if (eHAL_STATUS_SUCCESS != halStatus)
-    {
-        VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR,
-                "Failed to Cancel Remain on Channel");
-        return VOS_STATUS_E_FAULT;
-    }
-    return VOS_STATUS_SUCCESS;
+    return VOS_STATUS_E_FAULT;
 }
 
 /*==========================================================================

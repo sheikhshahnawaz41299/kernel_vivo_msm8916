@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -45,8 +45,6 @@ static ssize_t __wcnss_wowenable_write(struct file *file,
     v_U8_t wow_mp = 0;
     v_U8_t wow_pbm = 0;
 
-    ENTER();
-
     pAdapter = (hdd_adapter_t *)file->private_data;
     if ((NULL == pAdapter) || (WLAN_HDD_ADAPTER_MAGIC != pAdapter->magic))
     {
@@ -58,6 +56,8 @@ static ssize_t __wcnss_wowenable_write(struct file *file,
     pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     if (0 != wlan_hdd_validate_context(pHddCtx))
     {
+        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                 "%s: HDD context is not valid",__func__);
         return -EINVAL;
     }
 
@@ -130,7 +130,7 @@ static ssize_t __wcnss_wowenable_write(struct file *file,
 
       return -EFAULT;
     }
-    EXIT();
+
     return count;
 }
 
@@ -158,8 +158,6 @@ static ssize_t __wcnss_wowpattern_write(struct file *file,
     char *pattern_buf;
     char *pattern_mask;
 
-    ENTER();
-
     pAdapter = (hdd_adapter_t *)file->private_data;
     if ((NULL == pAdapter) || (WLAN_HDD_ADAPTER_MAGIC != pAdapter->magic))
     {
@@ -172,6 +170,8 @@ static ssize_t __wcnss_wowpattern_write(struct file *file,
     pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     if (0 != wlan_hdd_validate_context(pHddCtx))
     {
+        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                  "%s: HDD context is not valid",__func__);
         return -EINVAL;
     }
     if (!sme_IsFeatureSupportedByFW(WOW))
@@ -236,7 +236,7 @@ static ssize_t __wcnss_wowpattern_write(struct file *file,
 
     hdd_add_wowl_ptrn_debugfs(pAdapter, pattern_idx, pattern_offset,
                               pattern_buf, pattern_mask);
-    EXIT();
+
     return count;
 }
 
@@ -266,8 +266,6 @@ static ssize_t __wcnss_patterngen_write(struct file *file,
     v_U16_t pattern_len = 0;
     v_U16_t i = 0;
 
-    ENTER();
-
     pAdapter = (hdd_adapter_t *)file->private_data;
     if ((NULL == pAdapter) || (WLAN_HDD_ADAPTER_MAGIC != pAdapter->magic))
     {
@@ -280,6 +278,8 @@ static ssize_t __wcnss_patterngen_write(struct file *file,
     pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     if (0 != wlan_hdd_validate_context(pHddCtx))
     {
+        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                  "%s: HDD context is not valid",__func__);
         return -EINVAL;
     }
 
@@ -455,7 +455,6 @@ static ssize_t __wcnss_patterngen_write(struct file *file,
 
     vos_mem_free(addPeriodicTxPtrnParams);
     vos_mem_free(cmd);
-    EXIT();
     return count;
 
 failure:
@@ -481,8 +480,6 @@ static int __wcnss_debugfs_open(struct inode *inode, struct file *file)
     hdd_adapter_t *pAdapter;
     hdd_context_t *pHddCtx;
 
-    ENTER();
-
     pAdapter = (hdd_adapter_t *)file->private_data;
     if ((NULL == pAdapter) || (WLAN_HDD_ADAPTER_MAGIC != pAdapter->magic))
     {
@@ -494,6 +491,8 @@ static int __wcnss_debugfs_open(struct inode *inode, struct file *file)
     pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     if (0 != wlan_hdd_validate_context(pHddCtx))
     {
+        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                  "%s: HDD context is not valid",__func__);
         return -EINVAL;
     }
 
@@ -501,7 +500,7 @@ static int __wcnss_debugfs_open(struct inode *inode, struct file *file)
     {
         file->private_data = inode->i_private;
     }
-    EXIT();
+
     return 0;
 }
 

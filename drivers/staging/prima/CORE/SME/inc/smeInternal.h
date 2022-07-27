@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -38,6 +38,9 @@
   
   \brief prototype for SME internal structures and APIs used for SME and MAC
   
+   Copyright 2008 (c) Qualcomm, Incorporated.  All Rights Reserved.
+   
+   Qualcomm Confidential and Proprietary.
   
   ========================================================================*/
 
@@ -52,7 +55,6 @@
 #include "vos_memory.h"
 #include "vos_types.h"
 #include "csrLinkList.h"
-#include "vos_diag_core_event.h"
 
 /*-------------------------------------------------------------------------- 
   Type declarations
@@ -73,9 +75,6 @@ typedef enum eSmeCommandType
     eSmeCommandAddStaSession,
     eSmeCommandDelStaSession,
     eSmeCommandPnoReq,
-    eSmeCommandMacSpoofRequest,
-    eSmeCommandGetFrameLogRequest,
-    eSmeCommandSetMaxTxPower,
 #ifdef FEATURE_WLAN_TDLS
     //eSmeTdlsCommandMask = 0x80000,  //To identify TDLS commands <TODO>
     //These can be considered as csr commands. 
@@ -84,8 +83,14 @@ typedef enum eSmeCommandType
     eSmeCommandTdlsDelPeer, 
     eSmeCommandTdlsLinkEstablish,
     eSmeCommandTdlsChannelSwitch, // tdlsoffchan
+#ifdef FEATURE_WLAN_TDLS_INTERNAL
+    eSmeCommandTdlsDiscovery,
+    eSmeCommandTdlsLinkSetup,
+    eSmeCommandTdlsLinkTear,
+    eSmeCommandTdlsEnterUapsd,
+    eSmeCommandTdlsExitUapsd,
 #endif
-    eSmeCommandNanReq,
+#endif
     //PMC
     eSmePmcCommandMask = 0x20000, //To identify PMC commands
     eSmeCommandEnterImps,
@@ -119,19 +124,6 @@ typedef enum eSmeState
 #define SME_IS_START(pMac)  (SME_STATE_STOP != (pMac)->sme.state)
 #define SME_IS_READY(pMac)  (SME_STATE_READY == (pMac)->sme.state)
 
-#ifdef WLAN_FEATURE_RMC
-
-/* HDD Callback function */
-typedef void(*pIbssPeerInfoCb)(void *pUserData, void *infoParam);
-
-/* Peer info */
-typedef struct tagSmePeerInfoHddCbkInfo
-{
-   void *pUserData;
-   pIbssPeerInfoCb peerInfoCbk;
-}tSmePeerInfoHddCbkInfo;
-#endif /* WLAN_FEATURE_RMC */
-
 /* HDD Callback function */
 typedef void(*pEncryptMsgRSPCb)(void *pUserData, void *infoParam);
 
@@ -160,9 +152,6 @@ typedef struct tagSmeStruct
     tDblLinkList smeScanCmdPendingList;
     //active scan command list
     tDblLinkList smeScanCmdActiveList;
-#ifdef WLAN_FEATURE_RMC
-    tSmePeerInfoHddCbkInfo peerInfoParams;
-#endif /* WLAN_FEATURE_RMC */
 #ifdef FEATURE_WLAN_CH_AVOID
     void (*pChAvoidNotificationCb) (void *pAdapter, void *indParam);
 #endif /* FEATURE_WLAN_CH_AVOID */
@@ -181,12 +170,6 @@ typedef struct tagSmeStruct
 #endif /* WLAN_FEATURE_EXTSCAN */
    tSmeEncMsgHddCbkInfo pEncMsgInfoParams;
    void (*pBtCoexTDLSNotification) (void *pAdapter, int);
-   void (*nanCallback) (void*, tSirNanEvent*);
-   void (*rssiThresholdBreachedCb)(void *, struct rssi_breach_event *);
-#ifdef FEATURE_OEM_DATA_SUPPORT
-   void (*pOemDataIndCb) (void *, const tANI_U16, void *, tANI_U32);
-   void *pOemDataCallbackContext;
-#endif /* FEATURE_OEM_DATA_SUPPORT */
 
 } tSmeStruct, *tpSmeStruct;
 

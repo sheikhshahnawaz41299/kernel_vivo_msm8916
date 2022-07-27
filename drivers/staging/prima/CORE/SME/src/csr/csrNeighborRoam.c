@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -1076,7 +1076,7 @@ eHalStatus csrNeighborRoamPreauthRspHandler(tpAniSirGlobal pMac, tSirRetStatus l
     VOS_STATUS  vosStatus = VOS_STATUS_SUCCESS;
     eHalStatus  preauthProcessed = eHAL_STATUS_SUCCESS;
     tpCsrNeighborRoamBSSInfo pPreauthRspNode = NULL;
-    tCsrRoamSession *pSession;
+
 #ifdef FEATURE_WLAN_LFR_METRICS
     tCsrRoamInfo *roamInfo;
 #endif
@@ -1204,29 +1204,11 @@ eHalStatus csrNeighborRoamPreauthRspHandler(tpAniSirGlobal pMac, tSirRetStatus l
             csrNeighborRoamFreeNeighborRoamBSSNode(pMac, pNeighborBssNode);
             }
         }
-        pSession = CSR_GET_SESSION(pMac, pNeighborRoamInfo->csrSessionId);
-        if ((NULL != pSession) && pSession->abortConnection)
-        {
-           smsLog(pMac, LOGE, FL(" Deauth in progress Abort preauth"));
-           goto abort_preauth;
-        }
-
-        if (pMac->roam.pending_roam_disable)
-        {
-            smsLog(pMac, LOG1, FL("process pending roam disable"));
-            pMac->roam.configParam.isFastRoamIniFeatureEnabled = FALSE;
-            pMac->roam.pending_roam_disable = FALSE;
-            csrNeighborRoamUpdateFastRoamingEnabled(pMac, FALSE);
-            CSR_NEIGHBOR_ROAM_STATE_TRANSITION(
-                                   eCSR_NEIGHBOR_ROAM_STATE_CONNECTED);
-            goto DEQ_PREAUTH;
-        }
 
         /* Issue preauth request for the same/next entry */
         if (eHAL_STATUS_SUCCESS == csrNeighborRoamIssuePreauthReq(pMac))
         goto DEQ_PREAUTH; 
 
-abort_preauth:
 #ifdef WLAN_FEATURE_ROAM_SCAN_OFFLOAD
         if (csrRoamIsRoamOffloadScanEnabled(pMac))
         {
@@ -1318,8 +1300,6 @@ eHalStatus csrNeighborRoamPrepareScanProfileFilter(tpAniSirGlobal pMac, tCsrScan
 #ifdef WLAN_FEATURE_ROAM_SCAN_OFFLOAD
     if (pNeighborRoamInfo->uOsRequestedHandoff)
     {
-
-        smsLog(pMac, LOG1, FL("OS Requested Handoff"));
         pScanFilter->BSSIDs.numOfBSSIDs = 1;
         pScanFilter->BSSIDs.bssid = vos_mem_malloc(sizeof(tSirMacAddr) * pScanFilter->BSSIDs.numOfBSSIDs);
         if (NULL == pScanFilter->BSSIDs.bssid)
@@ -1367,35 +1347,21 @@ eHalStatus csrNeighborRoamPrepareScanProfileFilter(tpAniSirGlobal pMac, tCsrScan
 
     pScanFilter->BSSType = pCurProfile->BSSType;
 
-    if (pNeighborRoamInfo->roamChannelInfo.currentChannelListInfo.numOfChannels)
+    /* We are intrested only in the scan results on channels that we scanned  */
+    pScanFilter->ChannelInfo.numOfChannels = pNeighborRoamInfo->roamChannelInfo.currentChannelListInfo.numOfChannels;
+    pScanFilter->ChannelInfo.ChannelList = vos_mem_malloc(pScanFilter->ChannelInfo.numOfChannels * sizeof(tANI_U8));
+    if (NULL == pScanFilter->ChannelInfo.ChannelList)
     {
-       /* We are intrested only in the scan results on channels that we scanned  */
-       pScanFilter->ChannelInfo.numOfChannels =
-        pNeighborRoamInfo->roamChannelInfo.currentChannelListInfo.numOfChannels;
-       pScanFilter->ChannelInfo.ChannelList =
-        vos_mem_malloc(pScanFilter->ChannelInfo.numOfChannels * sizeof(tANI_U8));
-       if (NULL == pScanFilter->ChannelInfo.ChannelList)
-       {
-          smsLog(pMac, LOGE, FL("Scan Filter Channel list mem alloc failed"));
-          vos_mem_free(pScanFilter->SSIDs.SSIDList);
-          pScanFilter->SSIDs.SSIDList = NULL;
-          return eHAL_STATUS_FAILED_ALLOC;
-       }
-       for (i = 0; i < pScanFilter->ChannelInfo.numOfChannels; i++)
-       {
-          pScanFilter->ChannelInfo.ChannelList[i] =
-            pNeighborRoamInfo->roamChannelInfo.currentChannelListInfo.ChannelList[i];
-       }
+        smsLog(pMac, LOGE, FL("Scan Filter Channel list mem alloc failed"));
+        vos_mem_free(pScanFilter->SSIDs.SSIDList);
+        pScanFilter->SSIDs.SSIDList = NULL;
+        return eHAL_STATUS_FAILED_ALLOC;
     }
-    else
+    for (i = 0; i < pScanFilter->ChannelInfo.numOfChannels; i++)
     {
-       pScanFilter->ChannelInfo.numOfChannels = 0;
-       pScanFilter->ChannelInfo.ChannelList = NULL;
+        pScanFilter->ChannelInfo.ChannelList[i] = pNeighborRoamInfo->roamChannelInfo.currentChannelListInfo.ChannelList[i];
     }
-#ifdef WLAN_FEATURE_ROAM_SCAN_OFFLOAD
-    if (pMac->PERroamCandidatesCnt)
-       pScanFilter->isPERRoamScan = true;
-#endif
+
 #ifdef WLAN_FEATURE_VOWIFI_11R
     if (pNeighborRoamInfo->is11rAssoc)
     {
@@ -1403,12 +1369,6 @@ eHalStatus csrNeighborRoamPrepareScanProfileFilter(tpAniSirGlobal pMac, tCsrScan
         pScanFilter->MDID.mdiePresent = pCurProfile->MDID.mdiePresent;
         pScanFilter->MDID.mobilityDomain = pCurProfile->MDID.mobilityDomain;
     }
-#endif
-
-#ifdef WLAN_FEATURE_11W
-    pScanFilter->MFPEnabled = pCurProfile->MFPEnabled;
-    pScanFilter->MFPRequired = pCurProfile->MFPRequired;
-    pScanFilter->MFPCapable = pCurProfile->MFPCapable;
 #endif
 
     return eHAL_STATUS_SUCCESS;
@@ -1512,15 +1472,6 @@ static tANI_BOOLEAN csrNeighborRoamProcessScanResults(tpAniSirGlobal pMac,
                     "SKIP-currently associated AP");
             continue;
         }
-
-       if (vos_concurrent_open_sessions_running() &&
-          !pMac->roam.configParam.fenableMCCMode &&
-            (pScanResult->BssDescriptor.channelId !=
-            csrGetConcurrentOperationChannel(pMac))) {
-          smsLog(pMac, LOG1, FL("MCC not supported so Ignore AP on channel %d"),
-                    pScanResult->BssDescriptor.channelId);
-          continue;
-       }
 
 #ifdef FEATURE_WLAN_LFR
 #ifdef WLAN_FEATURE_ROAM_SCAN_OFFLOAD
@@ -3106,7 +3057,7 @@ void csrForcedInitialRoamTo5GHTimerCallback(void *context)
         return;
     }
 
-    pNeighborRoamInfo->scanRequestTimeStamp = vos_timer_get_system_time();
+    pNeighborRoamInfo->scanRequestTimeStamp = (tANI_TIMESTAMP)palGetTickCount(pMac->hHdd);
     /*
      * We are about to start a fresh scan cycle for all valid channles for 5Ghz
      * purge non-P2P results from the past for 5Ghz band
@@ -3478,8 +3429,7 @@ void csrNeighborRoamRRMNeighborReportResult(void *context, VOS_STATUS vosStatus)
                 }
 
                 /* We are gonna scan now. Remember the time stamp to filter out results only after this timestamp */
-                pNeighborRoamInfo->scanRequestTimeStamp =
-                                              vos_timer_get_system_time();
+                pNeighborRoamInfo->scanRequestTimeStamp = (tANI_TIMESTAMP)palGetTickCount(pMac->hHdd);
                 
                 /* Now ready for neighbor scan based on the channel list created */
                 /* Start Neighbor scan timer now. Multiplication by PAL_TIMER_TO_MS_UNIT is to convert ms to us which is 
@@ -3881,8 +3831,7 @@ VOS_STATUS csrNeighborRoamTransitToCFGChanScan(tpAniSirGlobal pMac)
                 pNeighborRoamInfo->lookupDOWNRssi,
                 pNeighborRoamInfo->cfgParams.neighborReassocThreshold*(-1));
 
-            pNeighborRoamInfo->scanRequestTimeStamp =
-                                          vos_timer_get_system_time();
+            pNeighborRoamInfo->scanRequestTimeStamp = (tANI_TIMESTAMP)palGetTickCount(pMac->hHdd);
 
             vos_timer_stop(&pNeighborRoamInfo->neighborScanTimer);
 
@@ -4067,7 +4016,7 @@ VOS_STATUS csrNeighborRoamTransitToCFGChanScan(tpAniSirGlobal pMac)
     }
 
     /* We are gonna scan now. Remember the time stamp to filter out results only after this timestamp */
-    pNeighborRoamInfo->scanRequestTimeStamp = vos_timer_get_system_time();
+    pNeighborRoamInfo->scanRequestTimeStamp = (tANI_TIMESTAMP)palGetTickCount(pMac->hHdd);
     
     vos_timer_stop(&pNeighborRoamInfo->neighborScanTimer);
     /* Start Neighbor scan timer now. Multiplication by PAL_TIMER_TO_MS_UNIT is to convert ms to us which is 
@@ -4642,13 +4591,6 @@ eHalStatus csrNeighborRoamIndicateConnect(tpAniSirGlobal pMac, tANI_U8 sessionId
                             
 #endif
 
-            if (pMac->roam.pending_roam_disable)
-            {
-                smsLog(pMac, LOG1, FL("process pending roam disable"));
-                pMac->roam.configParam.isFastRoamIniFeatureEnabled = FALSE;
-                pMac->roam.pending_roam_disable = FALSE;
-            }
-
 #ifdef FEATURE_WLAN_LFR
             // If "Legacy Fast Roaming" is enabled 
             if (csrRoamIsFastRoamEnabled(pMac, sessionId))
@@ -4820,28 +4762,19 @@ eHalStatus csrNeighborRoamInit(tpAniSirGlobal pMac)
     pNeighborRoamInfo->cfgParams.channelInfo.numOfChannels   =
                         pMac->roam.configParam.neighborRoamConfig.neighborScanChanList.numChannels;
 
-    if (pNeighborRoamInfo->cfgParams.channelInfo.numOfChannels != 0)
-    {
-        pNeighborRoamInfo->cfgParams.channelInfo.ChannelList =
+    pNeighborRoamInfo->cfgParams.channelInfo.ChannelList =
                 vos_mem_malloc(pMac->roam.configParam.neighborRoamConfig.neighborScanChanList.numChannels);
 
-        if (NULL == pNeighborRoamInfo->cfgParams.channelInfo.ChannelList)
-        {
-            smsLog(pMac, LOGE, FL("Memory Allocation for CFG Channel List failed"));
-            return eHAL_STATUS_RESOURCES;
-        }
+    if (NULL == pNeighborRoamInfo->cfgParams.channelInfo.ChannelList)
+    {
+        smsLog(pMac, LOGE, FL("Memory Allocation for CFG Channel List failed"));
+        return eHAL_STATUS_RESOURCES;
+    }
 
-        /* Update the roam global structure from CFG */
-        vos_mem_copy(pNeighborRoamInfo->cfgParams.channelInfo.ChannelList,
+    /* Update the roam global structure from CFG */
+    vos_mem_copy(pNeighborRoamInfo->cfgParams.channelInfo.ChannelList,
                         pMac->roam.configParam.neighborRoamConfig.neighborScanChanList.channelList,
                         pMac->roam.configParam.neighborRoamConfig.neighborScanChanList.numChannels);
-    }
-    else
-    {
-         smsLog(pMac, LOGW,
-                FL("invalid neighbor roam channel list: %u"),
-                    pNeighborRoamInfo->cfgParams.channelInfo.numOfChannels);
-    }
 
     vos_mem_set(pNeighborRoamInfo->currAPbssid, sizeof(tCsrBssid), 0);
     pNeighborRoamInfo->currentNeighborLookupThreshold = pMac->roam.neighborRoamInfo.cfgParams.neighborLookupThreshold;
@@ -4939,13 +4872,10 @@ eHalStatus csrNeighborRoamInit(tpAniSirGlobal pMac)
     }
 #endif
     /* Initialize this with the current tick count */
-    pNeighborRoamInfo->scanRequestTimeStamp = vos_timer_get_system_time();
+    pNeighborRoamInfo->scanRequestTimeStamp = (tANI_TIMESTAMP)palGetTickCount(pMac->hHdd);
 
     CSR_NEIGHBOR_ROAM_STATE_TRANSITION(eCSR_NEIGHBOR_ROAM_STATE_INIT)
     pNeighborRoamInfo->roamChannelInfo.IAPPNeighborListReceived = eANI_BOOLEAN_FALSE;
-
-    //Set the Last Sent Cmd as RSO_STOP
-    pNeighborRoamInfo->lastSentCmd = ROAM_SCAN_OFFLOAD_STOP;
     return eHAL_STATUS_SUCCESS;
 }
 
@@ -5364,10 +5294,6 @@ eHalStatus csrNeighborRoamProcessHandoffReq(tpAniSirGlobal pMac)
     tCsrRoamProfile *pProfile = NULL;
     tCsrRoamSession *pSession = CSR_GET_SESSION( pMac, pNeighborRoamInfo->csrSessionId );
     tANI_U8 i = 0;
-    uint8_t roam_now = 0;
-    uint8_t roamable_ap_count = 0;
-    tCsrScanResultFilter    scan_filter;
-    tScanResultHandle       scan_result;
 
     if (NULL == pSession)
     {
@@ -5423,30 +5349,13 @@ eHalStatus csrNeighborRoamProcessHandoffReq(tpAniSirGlobal pMac)
         }
         pProfile->ChannelInfo.ChannelList[0] = pNeighborRoamInfo->handoffReqInfo.channel;
 
-        /*
-         * For User space connect requests, the scan has already been done.
-         * So, check if the BSS descriptor exists in the scan cache and
-         * proceed with the handoff instead of a redundant scan again.
-         */
-        if (pNeighborRoamInfo->handoffReqInfo.src == CONNECT_CMD_USERSPACE) {
-            smsLog(pMac, LOG1, FL("Connect cmd with bssid within same ESS"));
-            status = csrNeighborRoamPrepareScanProfileFilter(
-                                               pMac, &scan_filter);
-            smsLog(pMac, LOG1, FL("Filter creation status = %d"), status);
-            status = csrScanGetResult(pMac, &scan_filter, &scan_result);
-            roam_now = csrNeighborRoamProcessScanResults(pMac, &scan_result);
-            roamable_ap_count = csrLLCount(&pNeighborRoamInfo->roamableAPList);
-            csrFreeScanFilter(pMac, &scan_filter);
-            smsLog(pMac, LOG1, FL("roam_now=%d, roamable_ap_count=%d"),
-                   roam_now, roamable_ap_count);
-        }
-        if (roam_now && roamable_ap_count) {
-            csrNeighborRoamTriggerHandoff(pMac, pNeighborRoamInfo);
-        } else {
-            status = csrScanForSSID(pMac, pSession->sessionId,
-                                           pProfile, roamId, FALSE);
-            if(!HAL_STATUS_SUCCESS(status))
-               smsLog(pMac, LOGE, FL("SSID scan failed"));
+        //clean up csr cache first
+        //csrScanFlushSelectiveResult(pMac, VOS_FALSE);
+        //do a SSID scan
+        status = csrScanForSSID(pMac, pNeighborRoamInfo->csrSessionId, pProfile, roamId, FALSE);
+        if(!HAL_STATUS_SUCCESS(status))
+        {
+            smsLog(pMac, LOGE, FL("SSID scan failed"));
         }
     }while(0);
 
@@ -5511,30 +5420,6 @@ eHalStatus csrNeighborRoamSssidScanDone(tpAniSirGlobal pMac, eHalStatus status)
     return eHAL_STATUS_SUCCESS;
 }
 
-/**
- * csr_neighbor_roam_handler_assign_handoff_src() - Assign source of
- *							roam handoff
- * @pNeighborRoamInfo: Pointer to csr neighbor roam control info
- * @pHandoffReqInfo: Pointer to the Handoff request
- *
- * Return: None
- */
-#ifndef QCA_WIFI_ISOC
-static inline void csr_neighbor_roam_handler_assign_handoff_src(
-			tpCsrNeighborRoamControlInfo  pNeighborRoamInfo,
-			tAniHandoffReq *pHandoffReqInfo)
-{
-	pNeighborRoamInfo->handoffReqInfo.src
-		= pHandoffReqInfo->handoff_src;
-}
-#else
-static inline void csr_neighbor_roam_handler_assign_handoff_src(
-			tpCsrNeighborRoamControlInfo  pNeighborRoamInfo,
-			tAniHandoffReq *pHandoffReqInfo)
-{
-}
-#endif
-
 /* ---------------------------------------------------------------------------
 
     \fn csrNeighborRoamHandoffReqHdlr
@@ -5572,8 +5457,6 @@ eHalStatus csrNeighborRoamHandoffReqHdlr(tpAniSirGlobal pMac, void* pMsg)
             {
 
                 pNeighborRoamInfo->handoffReqInfo.channel = pHandoffReqInfo->channel;
-                csr_neighbor_roam_handler_assign_handoff_src(pNeighborRoamInfo,
-                                                               pHandoffReqInfo);
                 vos_mem_copy(pNeighborRoamInfo->handoffReqInfo.bssid,
                              pHandoffReqInfo->bssid,
                              6);
