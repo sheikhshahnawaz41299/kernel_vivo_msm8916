@@ -366,6 +366,10 @@ struct wcd_mbhc {
 
 	wait_queue_head_t wait_btn_press;
 	bool is_btn_press;
+#ifdef CONFIG_MACH_VIVO
+	bool is_hs_inserted;
+#endif
+
 	u8 current_plug;
 	bool in_swch_irq_handler;
 	bool hphl_swh; /*track HPHL switch NC / NO */

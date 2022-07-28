@@ -1258,9 +1258,39 @@ int dpcm_be_dai_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 			dev_err(be->dev, "ASoC: no users %s at close - state %d\n",
 				stream ? "capture" : "playback",
 				be->dpcm[stream].state);
-
+#ifndef CONFIG_MACH_VIVO
 		if (--be->dpcm[stream].users != 0)
 			continue;
+#else
+		if (--be->dpcm[stream].users != 0) {
+			struct snd_soc_pcm_runtime *rtd = be_substream->private_data;
+			struct snd_soc_dai *codec_dai = rtd->codec_dai;
+			struct snd_soc_dpcm *be_dpcm;
+			int is_ignore_digital_mute = false;
+
+			list_for_each_entry(be_dpcm, &be->dpcm[stream].fe_clients, list_fe) {
+				struct snd_soc_pcm_runtime *fe = be_dpcm->fe;
+				if (strstr(fe->dai_link->name, "Circuit-Switch Voice") ||
+					strstr(fe->dai_link->name, "Voice2") ||
+					strstr(fe->dai_link->name, "VoLTE") ||
+					strstr(fe->dai_link->name, "VoWLAN"))
+					is_ignore_digital_mute = true;
+			}
+
+			/*
+			 * Call digital mute for BE (quat mi2s - iqoo) device
+			 * need to be updated in case both FM and other stream playback.
+			 * Changed by ChenJinQuan.
+			 */
+			if (((strstr(codec_dai->name, "vivo") &&
+				strstr(fe->dai_link->name, "QUAT_MI2S Hostless"))||
+				(strstr(codec_dai->name, "msm8x16_wcd_i2s_rx1") &&
+				strstr(fe->dai_link->name, "Primary MI2S_RX Hostless")))&&
+				!is_ignore_digital_mute)
+				snd_soc_dai_digital_mute(codec_dai, 1, be_substream->stream);
+			continue;
+		}
+#endif
 
 		if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_FREE) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_OPEN))
@@ -1785,8 +1815,27 @@ int dpcm_be_dai_prepare(struct snd_soc_pcm_runtime *fe, int stream)
 			continue;
 
 		if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_PARAMS) &&
+#ifndef CONFIG_MACH_VIVO
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP))
 			continue;
+#else
+		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP)) {
+			struct snd_soc_pcm_runtime *rtd = be_substream->private_data;
+			struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
+			/*
+			 * Call digital mute for BE (quat mi2s - iqoo) device
+			 * need to be updated in case both FM and other stream playback.
+			 * Changed by ChenJinQuan.
+			 */
+			if ((strstr(codec_dai->name, "vivo") &&
+				strstr(fe->dai_link->name, "QUAT_MI2S Hostless")) ||
+				(strstr(codec_dai->name, "msm8x16_wcd_i2s_rx1") &&
+				strstr(fe->dai_link->name, "Primary MI2S_RX Hostless")))
+				snd_soc_dai_digital_mute(codec_dai, 0, be_substream->stream);
+			continue;
+		}
+#endif
 
 		dev_dbg(be->dev, "ASoC: prepare BE %s\n",
 			dpcm->fe->dai_link->name);
